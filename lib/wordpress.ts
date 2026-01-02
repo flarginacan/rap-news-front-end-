@@ -34,13 +34,23 @@ interface WordPressPost {
   }
 }
 
+// Helper to fix image URLs (replace donaldbriggs.com with Bluehost URL)
+function fixImageUrl(url: string): string {
+  if (!url) return url
+  // Replace donaldbriggs.com with the actual WordPress backend URL
+  const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+  return url.replace(/https?:\/\/donaldbriggs\.com/, WORDPRESS_BACKEND_URL)
+}
+
 // Fetch featured image URL
 async function getFeaturedImageUrl(mediaId: number): Promise<string> {
   try {
     const response = await fetch(`${WORDPRESS_API_URL}/media/${mediaId}`)
     if (!response.ok) return getDefaultImage()
     const media = await response.json()
-    return media.source_url || getDefaultImage()
+    const imageUrl = media.source_url || getDefaultImage()
+    // Fix the URL to point to Bluehost instead of donaldbriggs.com
+    return fixImageUrl(imageUrl)
   } catch {
     return getDefaultImage()
   }
@@ -63,7 +73,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   if (post.featured_media) {
     imageUrl = await getFeaturedImageUrl(post.featured_media)
   } else if (post._embedded?.['wp:featuredmedia']?.[0]?.source_url) {
-    imageUrl = post._embedded['wp:featuredmedia'][0].source_url
+    imageUrl = fixImageUrl(post._embedded['wp:featuredmedia'][0].source_url)
   }
 
   // Get category
