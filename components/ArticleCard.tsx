@@ -110,7 +110,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   
   const articleContent = (
     <>
-      <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
+      <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 mx-4 md:mx-0 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
         <img
           src={article.image}
           alt={article.title}
