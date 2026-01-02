@@ -118,7 +118,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
         />
       </div>
       
-      <div className="px-4 md:px-0">
+      <div className="px-4 md:px-6 lg:px-8">
         <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-5 md:mb-6 leading-tight text-balance">
           {article.title}
         </h1>
