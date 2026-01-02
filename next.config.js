@@ -12,6 +12,21 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'donaldbriggs.com',
+          },
+        ],
+        destination: 'https://rapnews.com/:path*',
+        permanent: true, // 301 redirect
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig
