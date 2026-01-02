@@ -1,7 +1,9 @@
 import { Article } from '@/types'
 
 // WordPress API configuration
-const WORDPRESS_URL = process.env.WORDPRESS_URL || 'https://your-site.com'
+// For server-side: use full URL (rewrite in next.config.js helps with client-side CORS)
+// For client-side: can use /wp-json/wp/v2 (proxied via rewrite)
+const WORDPRESS_URL = process.env.WORDPRESS_URL || 'https://donaldbriggs.com'
 const WORDPRESS_API_URL = `${WORDPRESS_URL}/wp-json/wp/v2`
 
 interface WordPressPost {
