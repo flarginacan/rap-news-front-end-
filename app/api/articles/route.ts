@@ -6,6 +6,9 @@ import { fetchWordPressPosts } from '@/lib/wordpress'
 const ITEMS_PER_PAGE = 10
 const USE_WORDPRESS = process.env.USE_WORDPRESS === 'true'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
