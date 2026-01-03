@@ -167,27 +167,43 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
 // Fetch posts from WordPress
 export async function fetchWordPressPosts(page: number = 1, perPage: number = 10): Promise<Article[]> {
   try {
+    console.log(`[WordPress] Fetching posts from: ${WORDPRESS_API_URL}/posts?_embed&per_page=${perPage}&page=${page}`)
+    
     const response = await fetch(
       `${WORDPRESS_API_URL}/posts?_embed&per_page=${perPage}&page=${page}&orderby=date&order=desc`,
       {
-        next: { revalidate: 60 } // Cache for 60 seconds
+        // Remove 'next' option - not needed in API routes
+        cache: 'no-store' // Always fetch fresh data
       }
     )
 
     if (!response.ok) {
-      throw new Error(`WordPress API error: ${response.status}`)
+      const errorText = await response.text().catch(() => 'Unknown error')
+      console.error(`[WordPress] API error ${response.status}:`, errorText)
+      throw new Error(`WordPress API error: ${response.status} - ${errorText}`)
     }
 
     const posts: WordPressPost[] = await response.json()
+    console.log(`[WordPress] Fetched ${posts.length} posts`)
+    
+    if (posts.length === 0) {
+      console.warn('[WordPress] No posts returned from API')
+      return []
+    }
     
     // Convert all posts to Article format
     const articles = await Promise.all(
       posts.map(post => convertWordPressPost(post))
     )
 
+    console.log(`[WordPress] Converted ${articles.length} articles`)
     return articles
   } catch (error) {
-    console.error('Error fetching WordPress posts:', error)
+    console.error('[WordPress] Error fetching WordPress posts:', error)
+    if (error instanceof Error) {
+      console.error('[WordPress] Error message:', error.message)
+      console.error('[WordPress] Error stack:', error.stack)
+    }
     return []
   }
 }

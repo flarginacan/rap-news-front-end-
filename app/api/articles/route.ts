@@ -6,6 +6,12 @@ import { fetchWordPressPosts } from '@/lib/wordpress'
 const ITEMS_PER_PAGE = 10
 const USE_WORDPRESS = process.env.USE_WORDPRESS === 'true'
 
+// Log environment variable status
+if (typeof process !== 'undefined') {
+  console.log('[API] USE_WORDPRESS:', process.env.USE_WORDPRESS)
+  console.log('[API] WORDPRESS_URL:', process.env.WORDPRESS_URL)
+}
+
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic'
 
@@ -16,8 +22,11 @@ export async function GET(request: NextRequest) {
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
+      console.log('[API] USE_WORDPRESS is true, fetching from WordPress...')
       const page = cursor ? parseInt(cursor) : 1
       const articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
+      
+      console.log(`[API] Fetched ${articles.length} articles`)
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 
