@@ -1,10 +1,10 @@
 import { Article } from '@/types'
 
 // WordPress API configuration
-// For server-side: use full URL (rewrite in next.config.js helps with client-side CORS)
-// For client-side: can use /wp-json/wp/v2 (proxied via rewrite)
-const WORDPRESS_URL = process.env.WORDPRESS_URL || 'https://rapnews.com'
-const WORDPRESS_API_URL = `${WORDPRESS_URL}/wp-json/wp/v2`
+// Use direct Bluehost URL to bypass Vercel security checkpoint
+// The rewrite in next.config.js is for admin access, but API calls should go directly to WordPress
+const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+const WORDPRESS_API_URL = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2`
 
 interface WordPressPost {
   id: number
@@ -34,12 +34,12 @@ interface WordPressPost {
   }
 }
 
-// Helper to fix image URLs (replace donaldbriggs.com with Bluehost URL)
+// Helper to fix image URLs (replace donaldbriggs.com or rapnews.com with Bluehost URL)
 function fixImageUrl(url: string): string {
   if (!url) return url
-  // Replace donaldbriggs.com with the actual WordPress backend URL
+  // Replace donaldbriggs.com or rapnews.com with the actual WordPress backend URL
   const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
-  return url.replace(/https?:\/\/donaldbriggs\.com/, WORDPRESS_BACKEND_URL)
+  return url.replace(/https?:\/\/(donaldbriggs\.com|rapnews\.com)/, WORDPRESS_BACKEND_URL)
 }
 
 // Fetch featured image URL

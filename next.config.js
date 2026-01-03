@@ -10,6 +10,10 @@ const nextConfig = {
         source: '/wp-admin/:path*',
         destination: 'https://tsf.dvj.mybluehost.me/wp-admin/:path*',
       },
+      {
+        source: '/wp-content/:path*',
+        destination: 'https://tsf.dvj.mybluehost.me/wp-content/:path*',
+      },
     ];
   },
   async redirects() {
