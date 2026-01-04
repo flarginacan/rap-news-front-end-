@@ -100,8 +100,19 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  // Strip HTML from title
-  const title = post.title.rendered.replace(/<[^>]*>/g, '')
+  // Strip HTML from title and decode HTML entities
+  let title = post.title.rendered.replace(/<[^>]*>/g, '')
+  // Decode HTML entities (&#8217; → ', &#8220; → ", etc.)
+  title = title
+    .replace(/&#8217;/g, "'")
+    .replace(/&#8216;/g, "'")
+    .replace(/&#8220;/g, '"')
+    .replace(/&#8221;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
   
   // Remove images from content (they're already shown at the top)
   let content = post.content.rendered
