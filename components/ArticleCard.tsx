@@ -137,6 +137,17 @@ function cleanWordPressContent(html: string): string {
     // Remove WordPress block wrappers if present
     html = html.replace(/<!--\s*wp:[^>]*-->/gi, '')
     
+    // Remove duplicate title paragraphs (they appear after the image)
+    // This is a simple check - if we have a title-like paragraph right after the embed, remove it
+    const titlePattern = /<p>\s*Exclusive:[\s\S]*?<\/p>\s*/gi
+    html = html.replace(titlePattern, (match, offset, string) => {
+      // Only remove if it appears early in the content (likely duplicate)
+      if (offset < 500) {
+        return ''
+      }
+      return match
+    })
+    
     // Restore Getty Images divs (replace placeholder, preserving all classes, styles, and scripts)
     if (gettyImageDivs.length > 0) {
       html = html.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs[0])

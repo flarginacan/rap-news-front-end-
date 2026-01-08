@@ -172,6 +172,17 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   content = content.replace(/<p><\/p>/gi, '') // Remove empty paragraphs
   content = content.replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
   
+  // Remove duplicate title paragraphs (they appear after the image)
+  // Match paragraphs that are just the title
+  const titleText = post.title?.rendered || post.title || ''
+  if (titleText) {
+    // Remove HTML tags from title for matching
+    const cleanTitle = titleText.replace(/<[^>]*>/g, '').trim()
+    // Create pattern to match title in various formats
+    const titlePattern = new RegExp(`<p>\\s*${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*</p>\\s*`, 'gi')
+    content = content.replace(titlePattern, '')
+  }
+  
   // Restore Getty Images divs at the beginning (before any content)
   if (gettyImageDivs.length > 0) {
     // Replace placeholder with the actual Getty Images divs (preserving all classes, styles, and scripts)
