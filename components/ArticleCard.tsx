@@ -2,6 +2,7 @@
 
 import { Article } from '@/types'
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 
 interface ArticleCardProps {
   article: Article
@@ -151,9 +152,41 @@ function cleanWordPressContent(html: string): string {
 
 export default function ArticleCard({ article, showLink = true }: ArticleCardProps) {
   const contentHtml = cleanWordPressContent(article.content)
+  const contentRef = useRef<HTMLDivElement>(null)
   
   // Check if content starts with a Getty Images div (we want to use that instead of featured image)
   const hasGettyImageInContent = contentHtml.trim().startsWith('<div') && contentHtml.includes('gettyimages.com')
+  
+  // Execute scripts after content is rendered (for Getty Images embed widget)
+  useEffect(() => {
+    if (contentRef.current && contentHtml.includes('gie-single')) {
+      // Find and execute any script tags in the content
+      const scripts = contentRef.current.querySelectorAll('script')
+      scripts.forEach((script) => {
+        // Create a new script element to execute
+        const newScript = document.createElement('script')
+        if (script.src) {
+          newScript.src = script.src
+          newScript.async = script.async
+          newScript.charset = script.charset || 'utf-8'
+        } else {
+          newScript.textContent = script.textContent
+        }
+        // Remove old script and add new one to execute it
+        script.parentNode?.removeChild(script)
+        document.body.appendChild(newScript)
+      })
+      
+      // Also check if Getty Images widget loader needs to be loaded
+      if (typeof window !== 'undefined' && !(window as any).gie) {
+        const widgetScript = document.createElement('script')
+        widgetScript.src = '//embed-cdn.gettyimages.com/widgets.js'
+        widgetScript.charset = 'utf-8'
+        widgetScript.async = true
+        document.body.appendChild(widgetScript)
+      }
+    }
+  }, [contentHtml])
   
   const articleContent = (
     <>
@@ -189,6 +222,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
         </div>
         
         <div 
+          ref={contentRef}
           className="article-content max-w-none"
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
