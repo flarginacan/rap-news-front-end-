@@ -84,21 +84,45 @@ interface ArticleCardProps {
 function cleanWordPressContent(html: string): string {
   // If content looks like HTML (has tags), clean it up
   if (html.includes('<') && html.includes('>')) {
-    // Extract and preserve Getty Images divs completely (they need their styles)
+    // Extract and preserve Getty Images embed divs completely (including script tags, classes, styles)
     const gettyImageDivs: string[] = []
-    const gettyImagePattern = /<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi
+    // Match divs containing gettyimages.com OR gie-single class, including script tags
+    const gettyImagePattern = /<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>/gi
     let match
     while ((match = gettyImagePattern.exec(html)) !== null) {
-      gettyImageDivs.push(match[0])
+      // Also capture any script tags immediately after the div
+      const divEnd = match.index + match[0].length
+      const afterDiv = html.substring(divEnd, divEnd + 500)
+      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi)
+      if (scriptMatch) {
+        // Include the script tags in the preserved div
+        gettyImageDivs.push(match[0] + scriptMatch.join(''))
+      } else {
+        gettyImageDivs.push(match[0])
+      }
     }
     
-    // Temporarily replace Getty Images divs with placeholder
-    html = html.replace(/<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+    // Temporarily replace Getty Images divs with placeholder (including scripts)
+    html = html.replace(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
     
     // Remove WordPress-specific classes and inline styles
-    // (Getty Images divs are already extracted, so safe to remove)
-    html = html.replace(/class="[^"]*"/gi, '')
-    html = html.replace(/style="[^"]*"/gi, '')
+    // BUT preserve classes and styles inside Getty Images placeholders
+    html = html.replace(/class="[^"]*"/gi, (match, offset, string) => {
+      // If this is near a Getty placeholder, preserve it
+      const context = string.substring(Math.max(0, offset - 200), Math.min(string.length, offset + 200))
+      if (context.includes('GETTY_IMAGE_PLACEHOLDER') || context.includes('gie-single') || context.includes('gettyimages.com')) {
+        return match
+      }
+      return ''
+    })
+    html = html.replace(/style="[^"]*"/gi, (match, offset, string) => {
+      // If this is near a Getty placeholder, preserve it
+      const context = string.substring(Math.max(0, offset - 200), Math.min(string.length, offset + 200))
+      if (context.includes('GETTY_IMAGE_PLACEHOLDER') || context.includes('gie-single') || context.includes('gettyimages.com')) {
+        return match
+      }
+      return ''
+    })
     html = html.replace(/<p><\/p>/gi, '')
     html = html.replace(/<p>\s*<\/p>/gi, '')
     // Remove empty paragraphs
@@ -112,9 +136,11 @@ function cleanWordPressContent(html: string): string {
     // Remove WordPress block wrappers if present
     html = html.replace(/<!--\s*wp:[^>]*-->/gi, '')
     
-    // Restore Getty Images divs (replace placeholder)
+    // Restore Getty Images divs (replace placeholder, preserving all classes, styles, and scripts)
     if (gettyImageDivs.length > 0) {
-      html = html.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs.join('\n'))
+      html = html.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs[0])
+      // Remove any remaining placeholders
+      html = html.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, '')
     }
     
     return html.trim()
