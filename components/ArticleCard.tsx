@@ -84,7 +84,19 @@ interface ArticleCardProps {
 function cleanWordPressContent(html: string): string {
   // If content looks like HTML (has tags), clean it up
   if (html.includes('<') && html.includes('>')) {
+    // Extract and preserve Getty Images divs completely (they need their styles)
+    const gettyImageDivs: string[] = []
+    const gettyImagePattern = /<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi
+    let match
+    while ((match = gettyImagePattern.exec(html)) !== null) {
+      gettyImageDivs.push(match[0])
+    }
+    
+    // Temporarily replace Getty Images divs with placeholder
+    html = html.replace(/<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+    
     // Remove WordPress-specific classes and inline styles
+    // (Getty Images divs are already extracted, so safe to remove)
     html = html.replace(/class="[^"]*"/gi, '')
     html = html.replace(/style="[^"]*"/gi, '')
     html = html.replace(/<p><\/p>/gi, '')
@@ -99,6 +111,12 @@ function cleanWordPressContent(html: string): string {
     html = html.replace(/<\/div>\s*<p>/gi, '</div>\n\n<p>')
     // Remove WordPress block wrappers if present
     html = html.replace(/<!--\s*wp:[^>]*-->/gi, '')
+    
+    // Restore Getty Images divs (replace placeholder)
+    if (gettyImageDivs.length > 0) {
+      html = html.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs.join('\n'))
+    }
+    
     return html.trim()
   }
   // Otherwise, treat as markdown
@@ -108,17 +126,23 @@ function cleanWordPressContent(html: string): string {
 export default function ArticleCard({ article, showLink = true }: ArticleCardProps) {
   const contentHtml = cleanWordPressContent(article.content)
   
+  // Check if content starts with a Getty Images div (we want to use that instead of featured image)
+  const hasGettyImageInContent = contentHtml.trim().startsWith('<div') && contentHtml.includes('gettyimages.com')
+  
   const articleContent = (
     <>
-      <div className="px-4 md:px-0">
-        <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
-          <img
-            src={article.image}
-            alt={article.title}
-            className="w-full h-full object-cover"
-          />
+      {/* Only show featured image if content doesn't already have Getty Images at the top */}
+      {!hasGettyImageInContent && (
+        <div className="px-4 md:px-0">
+          <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
+            <img
+              src={article.image}
+              alt={article.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
         </div>
-      </div>
+      )}
       
       <div className="px-4 md:px-6 lg:px-8">
         <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-5 md:mb-6 leading-tight text-balance">

@@ -114,8 +114,22 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
   
-  // Remove images from content (they're already shown at the top)
+  // Preserve Getty Images divs (they contain gettyimages.com URLs)
+  // Remove other images from content (they're already shown at the top via featured image)
   let content = post.content.rendered
+  
+  // First, extract and preserve Getty Images divs completely
+  const gettyImageDivs: string[] = []
+  // Match the entire Getty Images div structure (may span multiple lines)
+  const gettyImagePattern = /<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi
+  let match
+  while ((match = gettyImagePattern.exec(content)) !== null) {
+    gettyImageDivs.push(match[0])
+  }
+  
+  // Remove the Getty Images divs from content temporarily (we'll restore them)
+  content = content.replace(/<div[^>]*style=["'][^"']*text-align:\s*center[^"']*["'][^>]*>[\s\S]*?gettyimages\.com[\s\S]*?<\/div>/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  
   // Remove img tags and figure tags containing images
   content = content.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
   content = content.replace(/<img[^>]*>/gi, '')
@@ -127,8 +141,19 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   content = content.replace(/Rap News/gi, '')
   
   // Clean up WordPress-specific classes and improve formatting
+  // (Getty Images divs are already extracted, so we can safely remove classes/styles)
   content = content.replace(/class="[^"]*"/gi, '') // Remove all classes
   content = content.replace(/style="[^"]*"/gi, '') // Remove inline styles
+  content = content.replace(/<p><\/p>/gi, '') // Remove empty paragraphs
+  content = content.replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+  
+  // Restore Getty Images divs at the beginning (before any content)
+  if (gettyImageDivs.length > 0) {
+    // Replace placeholder with the actual Getty Images divs
+    content = content.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, '')
+    // Insert at the very beginning
+    content = gettyImageDivs.join('\n') + '\n' + content
+  }
   content = content.replace(/<p><\/p>/gi, '') // Remove empty paragraphs
   content = content.replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
   
