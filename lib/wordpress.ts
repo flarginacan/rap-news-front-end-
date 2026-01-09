@@ -177,7 +177,8 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   const titleText = post.title?.rendered || post.title || ''
   if (titleText) {
     // Remove HTML tags from title for matching
-    const cleanTitle = titleText.replace(/<[^>]*>/g, '').trim()
+    const titleString = typeof titleText === 'string' ? titleText : titleText.rendered || ''
+    const cleanTitle = titleString.replace(/<[^>]*>/g, '').trim()
     // Create pattern to match title in various formats
     const titlePattern = new RegExp(`<p>\\s*${cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*</p>\\s*`, 'gi')
     content = content.replace(titlePattern, '')
