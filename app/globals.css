@@ -80,6 +80,28 @@
   .article-content hr {
     @apply my-8 border-gray-200;
   }
+  
+  /* Getty Images embed styling */
+  .article-content div[style*="text-align: center"] {
+    @apply my-8 md:my-12;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 100%;
+  }
+  
+  .article-content .gie-single {
+    @apply mb-4;
+  }
+  
+  /* Remove duplicate title paragraphs */
+  .article-content p:first-of-type {
+    @apply text-xl md:text-2xl font-semibold text-black mb-8 leading-8;
+  }
+  
+  /* Better spacing for first paragraph after embed */
+  .article-content > div:first-child + p {
+    @apply mt-0;
+  }
 }
 
 

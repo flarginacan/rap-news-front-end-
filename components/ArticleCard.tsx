@@ -235,6 +235,10 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
         <div 
           ref={contentRef}
           className="article-content max-w-none"
+          style={{ 
+            lineHeight: '1.75',
+            fontSize: '18px'
+          }}
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
       </div>
