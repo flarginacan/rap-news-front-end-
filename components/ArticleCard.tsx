@@ -13,11 +13,39 @@ interface ArticleCardProps {
 function markdownToHtml(markdown: string): string {
   let html = markdown
   
-  // Italic (do before bold to avoid conflicts)
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  // CRITICAL: Only bold quotes (text within quotation marks)
+  // First, remove bolding from anything that's not a quote
+  html = html.replace(/\*\*([^*"]+?)\*\*/g, (match, text) => {
+    // If it's not a quote (doesn't start/end with quotes), remove the bolding
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('"') && !trimmed.endsWith('"') && !trimmed.startsWith("'") && !trimmed.endsWith("'")) {
+      return text; // Remove bolding from non-quotes
+    }
+    return match; // Keep bolding on quotes
+  });
   
-  // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold">$1</strong>')
+  // Now bold quotes that aren't already bolded
+  html = html.replace(/"([^"]+)"/g, (match, quoteText) => {
+    // Check if this quote is already bolded
+    const beforeMatch = html.substring(Math.max(0, html.indexOf(match) - 20), html.indexOf(match));
+    const afterMatch = html.substring(html.indexOf(match) + match.length, html.indexOf(match) + match.length + 20);
+    const context = beforeMatch + match + afterMatch;
+    
+    // If already bolded, don't change it
+    if (context.includes(`**"${quoteText}"**`) || context.includes(`<strong>"${quoteText}"</strong>`)) {
+      return match;
+    }
+    
+    // Bold the quote
+    return `**"${quoteText}"**`;
+  });
+  
+  // Convert bold markdown to HTML (only for quotes now)
+  html = html.replace(/\*\*"([^"]+)"\*\*/g, '<strong class="font-bold">"$1"</strong>')
+  html = html.replace(/\*\*'([^']+)'\*\*/g, "<strong class='font-bold'>'$1'</strong>")
+  
+  // Remove any remaining bold markdown that's not a quote
+  html = html.replace(/\*\*([^*]+)\*\*/g, '$1')
   
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-red-600 underline hover:text-red-700" target="_blank" rel="noopener noreferrer">$1</a>')
