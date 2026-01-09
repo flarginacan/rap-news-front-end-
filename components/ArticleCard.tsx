@@ -193,8 +193,8 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
-  // Check if content starts with a Getty Images div (we want to use that instead of featured image)
-  const hasGettyImageInContent = contentHtml.trim().startsWith('<div') && contentHtml.includes('gettyimages.com')
+  // Check if content starts with a Getty Images div or iframe (we want to use that instead of featured image)
+  const hasGettyImageInContent = (contentHtml.trim().startsWith('<div') || contentHtml.trim().startsWith('<iframe')) && (contentHtml.includes('gettyimages.com') || contentHtml.includes('embed.gettyimages.com'))
   
   // Execute scripts after content is rendered (for Getty Images embed widget)
   useEffect(() => {
@@ -233,8 +233,8 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
   if (hasGettyImageInContent) {
-    // Extract the Getty Images div (including scripts)
-    const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
+    // Extract the Getty Images div or iframe (including scripts or iframe)
+    const gettyMatch = contentHtml.match(/(?:<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single|embed\.gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*|<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>)/i);
     if (gettyMatch) {
       gettyImageHtml = gettyMatch[0];
       // Remove it from content
