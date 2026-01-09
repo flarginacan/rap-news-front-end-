@@ -230,6 +230,8 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   // Extract Getty Images embed from content if present
   let gettyImageHtml = '';
   let contentWithoutGetty = contentHtml;
+  const gettyImageRef = useRef<HTMLDivElement>(null);
+  
   if (hasGettyImageInContent) {
     // Extract the Getty Images div (including scripts)
     const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
@@ -239,6 +241,52 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       contentWithoutGetty = contentHtml.replace(gettyMatch[0], '');
     }
   }
+  
+  // Execute scripts for Getty Images embed widget (both in extracted div and in content)
+  useEffect(() => {
+    // Check extracted Getty Images div above title
+    if (gettyImageRef.current) {
+      const scripts = gettyImageRef.current.querySelectorAll('script');
+      scripts.forEach((script) => {
+        const newScript = document.createElement('script');
+        if (script.src) {
+          newScript.src = script.src;
+          newScript.async = script.async;
+          newScript.charset = script.charset || 'utf-8';
+        } else {
+          newScript.textContent = script.textContent;
+        }
+        script.parentNode?.removeChild(script);
+        document.body.appendChild(newScript);
+      });
+    }
+    
+    // Also check content for scripts (fallback)
+    if (contentRef.current && contentHtml.includes('gie-single')) {
+      const scripts = contentRef.current.querySelectorAll('script');
+      scripts.forEach((script) => {
+        const newScript = document.createElement('script');
+        if (script.src) {
+          newScript.src = script.src;
+          newScript.async = script.async;
+          newScript.charset = script.charset || 'utf-8';
+        } else {
+          newScript.textContent = script.textContent;
+        }
+        script.parentNode?.removeChild(script);
+        document.body.appendChild(newScript);
+      });
+    }
+    
+    // Load Getty Images widget loader if needed
+    if (typeof window !== 'undefined' && !(window as any).gie && (gettyImageHtml.includes('gie-single') || contentHtml.includes('gie-single'))) {
+      const widgetScript = document.createElement('script');
+      widgetScript.src = '//embed-cdn.gettyimages.com/widgets.js';
+      widgetScript.charset = 'utf-8';
+      widgetScript.async = true;
+      document.body.appendChild(widgetScript);
+    }
+  }, [contentHtml, gettyImageHtml]);
 
   const articleContent = (
     <>
@@ -246,6 +294,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       {gettyImageHtml && (
         <div className="px-4 md:px-0 mb-6 md:mb-8">
           <div 
+            ref={gettyImageRef}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
           />
         </div>
