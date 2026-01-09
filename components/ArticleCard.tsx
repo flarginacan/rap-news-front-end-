@@ -227,10 +227,32 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
     }
   }, [contentHtml])
   
+  // Extract Getty Images embed from content if present
+  let gettyImageHtml = '';
+  let contentWithoutGetty = contentHtml;
+  if (hasGettyImageInContent) {
+    // Extract the Getty Images div (including scripts)
+    const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
+    if (gettyMatch) {
+      gettyImageHtml = gettyMatch[0];
+      // Remove it from content
+      contentWithoutGetty = contentHtml.replace(gettyMatch[0], '');
+    }
+  }
+
   const articleContent = (
     <>
-      {/* Only show featured image if content doesn't already have Getty Images at the top */}
-      {!hasGettyImageInContent && (
+      {/* Show Getty Images above title if present */}
+      {gettyImageHtml && (
+        <div className="px-4 md:px-0 mb-6 md:mb-8">
+          <div 
+            dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
+          />
+        </div>
+      )}
+      
+      {/* Only show featured image if no Getty Images and content doesn't already have it */}
+      {!gettyImageHtml && !hasGettyImageInContent && (
         <div className="px-4 md:px-0">
           <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
             <img
@@ -267,7 +289,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
             lineHeight: '1.75',
             fontSize: '18px'
           }}
-          dangerouslySetInnerHTML={{ __html: contentHtml }}
+          dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
         />
       </div>
     </>
