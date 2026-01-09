@@ -236,7 +236,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
     // Extract the Getty Images div with ALL script tags (they come after the closing </div>)
     // Pattern: <div>...gie-single...</div> followed by <script> tags
     const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single|embed\.gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
-    if (gettyMatch) {
+    if (gettyMatch && gettyMatch.index !== undefined) {
       // Get the full match including scripts
       const divEnd = gettyMatch.index + gettyMatch[0].length;
       const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
