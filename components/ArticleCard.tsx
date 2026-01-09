@@ -233,12 +233,21 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
   if (hasGettyImageInContent) {
-    // Extract the Getty Images div or iframe (including scripts or iframe)
-    const gettyMatch = contentHtml.match(/(?:<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single|embed\.gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*|<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>)/i);
+    // Extract the Getty Images div with ALL script tags (they come after the closing </div>)
+    // Pattern: <div>...gie-single...</div> followed by <script> tags
+    const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single|embed\.gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
     if (gettyMatch) {
-      gettyImageHtml = gettyMatch[0];
-      // Remove it from content
-      contentWithoutGetty = contentHtml.replace(gettyMatch[0], '');
+      // Get the full match including scripts
+      const divEnd = gettyMatch.index + gettyMatch[0].length;
+      const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
+      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
+      if (scriptMatch) {
+        gettyImageHtml = gettyMatch[0] + scriptMatch.join('');
+      } else {
+        gettyImageHtml = gettyMatch[0];
+      }
+      // Remove it from content (including scripts)
+      contentWithoutGetty = contentHtml.replace(gettyImageHtml, '');
     }
   }
   

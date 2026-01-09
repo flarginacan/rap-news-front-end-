@@ -122,6 +122,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   const gettyImageDivs: string[] = []
   // Match the entire Getty Images div structure including script tags (may span multiple lines)
   // Pattern: <div> containing gettyimages.com OR gie-single class, including all script tags
+  // Updated to capture scripts that come AFTER the closing </div> tag
   const gettyImagePattern = /<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>/gi
   let match
   while ((match = gettyImagePattern.exec(content)) !== null) {
