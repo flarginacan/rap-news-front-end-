@@ -28,7 +28,7 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <main className="pt-16 md:pt-20 bg-white">
+      <main className="pt-20 md:pt-24 bg-white">
         <div className="max-w-4xl mx-auto">
           <ArticleCard article={currentArticle} showLink={false} />
           <ArticleFeed excludeSlug={params.slug} />

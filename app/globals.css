@@ -83,7 +83,7 @@
   
   /* Getty Images embed styling */
   .article-content div[style*="text-align: center"] {
-    @apply my-8 md:my-12;
+    @apply mt-2 md:mt-3 mb-6 md:mb-8;
     margin-left: auto;
     margin-right: auto;
     max-width: 100%;

@@ -243,11 +243,11 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       )}
       
       <div className="px-4 md:px-6 lg:px-8">
-        <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-5 md:mb-6 leading-tight text-balance">
+        <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 mt-4 md:mt-6 leading-tight text-balance">
           {article.title}
         </h1>
         
-        <div className="flex items-center text-sm md:text-base text-gray-500 space-x-3 mb-8 md:mb-10 pb-5 md:pb-6 border-b border-gray-100">
+        <div className="flex items-center text-sm md:text-base text-gray-500 space-x-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-gray-100">
           <span className="font-semibold text-gray-700">{article.author}</span>
           <span className="text-gray-400">•</span>
           <span>{article.date}</span>
