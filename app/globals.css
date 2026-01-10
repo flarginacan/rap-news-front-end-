@@ -57,6 +57,12 @@
     text-decoration: underline !important;
     text-underline-offset: 2px;
     cursor: pointer;
+    color: #dc2626 !important; /* red-600 */
+    pointer-events: auto !important;
+  }
+  
+  .person-link:hover {
+    opacity: 0.8;
   }
   
   .article-content ul,
