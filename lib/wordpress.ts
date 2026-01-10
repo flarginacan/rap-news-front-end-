@@ -6,6 +6,14 @@ import { Article } from '@/types'
 const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
 const WORDPRESS_API_URL = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2`
 
+// Shared headers for WordPress API requests (avoids ModSecurity blocking)
+function wpHeaders() {
+  return {
+    Accept: 'application/json',
+    'User-Agent': 'rapnews-server-fetch/1.0', // avoids ModSecurity "browser-like" blocking
+  };
+}
+
 interface WordPressPost {
   id: number
   title: {

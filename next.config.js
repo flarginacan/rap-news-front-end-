@@ -2,10 +2,10 @@
 const nextConfig = {
   async rewrites() {
     return [
-      // IMPORTANT: DO NOT rewrite /person/* or /article/* or Next/WP/system routes
+      // Rewrite ONLY true root-level slugs to /article/:slug
+      // Important: exclude /article/* and /person/* and all WP/Next system paths.
       {
-        source:
-          '/:slug((?!wp-json(?:/|$)|wp-admin(?:/|$)|wp-content(?:/|$)|api(?:/|$)|_next(?:/|$)|favicon\\.ico$|robots\\.txt$|sitemap\\.xml$|person(?:/|$)|article(?:/|$)).*)',
+        source: '/:slug((?!wp-json|wp-admin|wp-content|api|_next|favicon.ico|robots.txt|sitemap.xml|article|person).*)',
         destination: '/article/:slug',
       },
     ];

@@ -102,14 +102,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         </main>
       </div>
     )
-  } catch (error) {
-    // Catch any unexpected errors to prevent white screen
-    console.error(`[ArticlePage] Unexpected error for slug ${slug}:`, error)
-    if (error instanceof Error) {
-      console.error(`[ArticlePage] Error message:`, error.message)
-      console.error(`[ArticlePage] Error stack:`, error.stack)
-    }
-    // Show 404 instead of white screen
+  } catch (err) {
+    console.error('[ArticlePage] fatal error', { slug, err })
     notFound()
   }
 }
