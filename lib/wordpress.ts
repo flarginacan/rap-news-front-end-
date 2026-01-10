@@ -405,7 +405,8 @@ function forceCanonicalCTA(html: string): string {
 // Fetch a single post by slug
 export async function fetchWordPressPostBySlug(slug: string): Promise<Article | null> {
   try {
-    const url = `https://www.rapnews.com/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed=1`
+    // Use direct Bluehost URL to bypass Vercel Security Checkpoint
+    const url = `${WORDPRESS_API_URL}/posts?slug=${encodeURIComponent(slug)}&_embed=1`
     
     console.log(`[fetchWordPressPostBySlug] Fetching: ${url}`)
     
@@ -442,7 +443,7 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
 
 // Fetch tag by slug (for /person pages)
 export async function fetchTagBySlug(tagSlug: string) {
-  const url = `https://www.rapnews.com/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`
+  const url = `${WORDPRESS_API_URL}/tags?slug=${encodeURIComponent(tagSlug)}`
   const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 300 } })
 
   if (!res.ok) {
@@ -457,7 +458,7 @@ export async function fetchTagBySlug(tagSlug: string) {
 
 // Fetch posts by tag ID (for /person pages)
 export async function fetchPostsByTagId(tagId: number, perPage = 20) {
-  const url = `https://www.rapnews.com/wp-json/wp/v2/posts?tags=${tagId}&per_page=${perPage}&_embed=1&orderby=date&order=desc`
+  const url = `${WORDPRESS_API_URL}/posts?tags=${tagId}&per_page=${perPage}&_embed=1&orderby=date&order=desc`
   const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 60 } })
 
   if (!res.ok) {

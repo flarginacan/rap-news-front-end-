@@ -13,9 +13,13 @@ export async function generateStaticParams() {
   try {
     // Optionally pre-generate the most recent 20 posts
     // This is optional - with revalidate, new posts will still work
-    // Use www.rapnews.com with non-browser headers to avoid ModSecurity
+    // Use direct Bluehost URL to bypass Vercel Security Checkpoint
+    const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
+      ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
+      : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
+    
     const response = await fetch(
-      `https://www.rapnews.com/wp-json/wp/v2/posts?per_page=20&orderby=date&order=desc&_fields=slug`,
+      `${WORDPRESS_API_URL}/posts?per_page=20&orderby=date&order=desc&_fields=slug`,
       {
         headers: {
           'Accept': 'application/json',
