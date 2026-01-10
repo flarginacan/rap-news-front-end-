@@ -10,8 +10,12 @@ const WORDPRESS_API_URL = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2`
 function wpHeaders() {
   return {
     Accept: 'application/json',
-    'User-Agent': 'rapnews-server-fetch/1.0', // avoids ModSecurity "browser-like" blocking
+    'User-Agent': 'rapnews-server-fetch/1.0',
   };
+}
+
+async function readResTextSafe(res: Response) {
+  try { return await res.text(); } catch { return ''; }
 }
 
 interface WordPressPost {
@@ -447,11 +451,11 @@ export async function fetchTagBySlug(tagSlug: string) {
 
   const res = await fetch(url, {
     headers: wpHeaders(),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
+    const body = await readResTextSafe(res);
     console.error('[WP] fetchTagBySlug failed', { tagSlug, status: res.status, body: body.slice(0, 300) });
     return null;
   }
@@ -472,16 +476,24 @@ export async function fetchPostsByTagId(tagId: number, perPage = 50) {
 
   const res = await fetch(url, {
     headers: wpHeaders(),
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
+  const debug = {
+    url,
+    status: res.status,
+    wpTotal: res.headers.get('x-wp-total'),
+    wpTotalPages: res.headers.get('x-wp-totalpages'),
+  };
+
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    console.error('[WP] fetchPostsByTagId failed', { tagId, status: res.status, body: body.slice(0, 300) });
-    return [];
+    const body = await readResTextSafe(res);
+    console.error('[WP] fetchPostsByTagId failed', { tagId, ...debug, body: body.slice(0, 300) });
+    return { posts: [], debug };
   }
 
-  return (await res.json()) as any[];
+  const posts = (await res.json()) as any[];
+  return { posts, debug };
 }
 
 // Fetch posts from WordPress
