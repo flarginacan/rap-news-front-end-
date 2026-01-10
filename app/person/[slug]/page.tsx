@@ -7,57 +7,41 @@ export const revalidate = 60;
 export default async function PersonPage({ params }: { params: { slug: string } }) {
   const slug = params.slug;
 
-  try {
-    const tag = await fetchTagBySlug(slug);
-    if (!tag?.id) {
-      console.log(`[PersonPage] Tag not found for slug: ${slug}`)
-      return notFound();
-    }
+  // 1) Find the WP tag by slug
+  const tag = await fetchTagBySlug(slug);
+  if (!tag?.id) return notFound();
 
-    console.log(`[PersonPage] Found tag: ${tag.name} (ID: ${tag.id})`)
+  // 2) Fetch ONLY posts that have this tag ID
+  const posts = await fetchPostsByTagId(tag.id, 50);
 
-    const posts = await fetchPostsByTagId(tag.id, 50);
-    console.log(`[PersonPage] Found ${posts.length} posts for ${tag.name}`)
+  return (
+    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+      <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 10 }}>{tag.name}</h1>
+      <p style={{ opacity: 0.7, marginBottom: 20 }}>
+        Showing {posts.length} article{posts.length === 1 ? '' : 's'} tagged with "{tag.name}"
+      </p>
 
-    return (
-      <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 40, fontWeight: 800, marginBottom: 8 }}>{tag.name}</h1>
-        <p style={{ opacity: 0.7, marginBottom: 24 }}>
-          Latest articles mentioning <strong>{tag.name}</strong>
-        </p>
-
-        {posts.length === 0 ? (
-          <p>No articles found yet.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: 14 }}>
-            {posts.map((p: any) => (
-              <Link
-                key={p.id}
-                href={`/${p.slug}`}
-                style={{
-                  display: 'block',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  borderRadius: 12,
-                  padding: 14,
-                  textDecoration: 'none',
-                  color: 'inherit',
-                }}
-              >
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
-                  {new Date(p.date).toLocaleString()}
-                </div>
-                <div
-                  style={{ fontSize: 18, fontWeight: 800 }}
-                  dangerouslySetInnerHTML={{ __html: p.title?.rendered ?? 'Untitled' }}
-                />
-              </Link>
-            ))}
+      {posts.length === 0 ? (
+        <div style={{ padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>No tagged articles yet</div>
+          <div style={{ opacity: 0.7 }}>
+            This person tag exists, but no posts are currently tagged with it.
           </div>
-        )}
-      </div>
-    );
-  } catch (err) {
-    console.error('[PersonPage] fatal error', { slug, err });
-    return notFound();
-  }
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {posts.map((p: any) => (
+            <div key={p.id} style={{ padding: 14, border: '1px solid #eee', borderRadius: 10 }}>
+              <Link href={`/${p.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ fontWeight: 900, fontSize: 18 }} dangerouslySetInnerHTML={{ __html: p.title?.rendered ?? 'Untitled' }} />
+              </Link>
+              <div style={{ marginTop: 6, opacity: 0.7, fontSize: 13 }}>
+                {p.date ? new Date(p.date).toLocaleString() : ''}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

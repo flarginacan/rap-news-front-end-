@@ -443,31 +443,45 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
 
 // Fetch tag by slug (for /person pages)
 export async function fetchTagBySlug(tagSlug: string) {
-  const url = `${WORDPRESS_API_URL}/tags?slug=${encodeURIComponent(tagSlug)}`
-  const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 300 } })
+  const url = `https://www.rapnews.com/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`;
+
+  const res = await fetch(url, {
+    headers: wpHeaders(),
+    next: { revalidate: 300 },
+  });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    console.error('[WP] fetchTagBySlug failed', { tagSlug, status: res.status, body: body.slice(0, 300) })
-    return null
+    const body = await res.text().catch(() => '');
+    console.error('[WP] fetchTagBySlug failed', { tagSlug, status: res.status, body: body.slice(0, 300) });
+    return null;
   }
 
-  const tags = (await res.json()) as any[]
-  return tags?.[0] ?? null
+  const tags = (await res.json()) as any[];
+  return tags?.[0] ?? null;
 }
 
 // Fetch posts by tag ID (for /person pages)
-export async function fetchPostsByTagId(tagId: number, perPage = 20) {
-  const url = `${WORDPRESS_API_URL}/posts?tags=${tagId}&per_page=${perPage}&_embed=1&orderby=date&order=desc`
-  const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 60 } })
+export async function fetchPostsByTagId(tagId: number, perPage = 50) {
+  const url =
+    `https://www.rapnews.com/wp-json/wp/v2/posts` +
+    `?tags=${tagId}` +
+    `&per_page=${perPage}` +
+    `&_embed=1` +
+    `&orderby=date` +
+    `&order=desc`;
+
+  const res = await fetch(url, {
+    headers: wpHeaders(),
+    next: { revalidate: 60 },
+  });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    console.error('[WP] fetchPostsByTagId failed', { tagId, status: res.status, body: body.slice(0, 300) })
-    return []
+    const body = await res.text().catch(() => '');
+    console.error('[WP] fetchPostsByTagId failed', { tagId, status: res.status, body: body.slice(0, 300) });
+    return [];
   }
 
-  return (await res.json()) as any[]
+  return (await res.json()) as any[];
 }
 
 // Fetch posts from WordPress
