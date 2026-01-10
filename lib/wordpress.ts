@@ -339,9 +339,10 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   if (peopleMentioned.length > 0) {
     const { transformHtmlWithPersonLinks } = await import('./person-links')
     const beforeLength = content.length
-    content = transformHtmlWithPersonLinks(content, peopleMentioned)
+    const result = transformHtmlWithPersonLinks(content, peopleMentioned)
+    content = result.html
     const afterLength = content.length
-    console.log(`[convertWordPressPost] After person linking: content length ${beforeLength} -> ${afterLength}`)
+    console.log(`[convertWordPressPost] After person linking: content length ${beforeLength} -> ${afterLength}, links added: ${result.linkCount}`)
     console.log(`[convertWordPressPost] Contains person-link: ${content.includes('person-link')}`)
     console.log(`[convertWordPressPost] Contains /person/: ${content.includes('/person/')}`)
   } else {

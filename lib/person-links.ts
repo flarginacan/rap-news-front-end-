@@ -1,113 +1,53 @@
-import * as cheerio from 'cheerio';
+export type PersonRef = { name: string; slug: string };
 
-/**
- * Slugify person name for URL
- */
-export function slugifyPerson(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
-    .trim()
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-') // Collapse multiple hyphens
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * Transform HTML to link person names
- * Uses cheerio to safely parse HTML and only modify text nodes
+ * Wrap exact person name matches with an anchor to /person/{slug}.
+ * - Uses absolute path (leading slash) so it never becomes /article/person/...
+ * - Avoids linking inside existing <a> tags.
  */
-export function transformHtmlWithPersonLinks(html: string, people: Array<{ name: string; slug: string }>): string {
-  if (!html || !people || people.length === 0) {
-    console.log('[transformHtmlWithPersonLinks] No people provided, returning HTML unchanged')
-    return html
-  }
+export function transformHtmlWithPersonLinks(html: string, people: PersonRef[]) {
+  if (!html || !people?.length) return { html, linkCount: 0 };
 
-  console.log(`[transformHtmlWithPersonLinks] Processing ${people.length} people: ${people.map(p => p.name).join(', ')}`)
+  // Sort longest first so "Fetty Wap" links before "Fetty"
+  const sorted = [...people]
+    .filter(p => p?.name && p?.slug)
+    .sort((a, b) => b.name.length - a.name.length);
 
-  // Sort people by length DESC (so "Lil Baby" matches before "Lil")
-  const sortedPeople = [...people].sort((a, b) => b.name.length - a.name.length)
+  let linkCount = 0;
 
-  // Load HTML into cheerio
-  const $ = cheerio.load(html, {
-    decodeEntities: false, // Preserve HTML entities
-  })
+  // Split by existing anchor blocks so we don't double-link inside links
+  const parts = html.split(/(<a\b[\s\S]*?<\/a>)/gi);
 
-  let replacementsMade = 0
+  const transformed = parts
+    .map(part => {
+      // If this chunk is an existing anchor, return as-is
+      if (/^<a\b/i.test(part)) return part;
 
-  // Process each person name
-  for (const person of sortedPeople) {
-    const escapedName = person.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const slug = person.slug
-    // Use word boundary regex
-    const pattern = new RegExp(`\\b${escapedName}\\b`, 'gi')
+      let out = part;
 
-    // Process all text nodes directly
-    $('body').find('*').contents().each((_, node) => {
-      // Only process text nodes
-      if (node.type !== 'text') {
-        return
+      for (const person of sorted) {
+        const name = person.name.trim();
+        if (!name) continue;
+
+        // Word-boundary-ish match for the full name (allows whitespace between words)
+        // Also allows possessive: "Fetty Wap's"
+        const tokens = name.split(/\s+/).map(escapeRegExp);
+        const pattern = `\\b${tokens.join("\\s+")}(?:'s)?\\b`;
+        const re = new RegExp(pattern, "g");
+
+        out = out.replace(re, (match) => {
+          linkCount += 1;
+          return `<a class="person-link" href="/person/${person.slug}">${match}</a>`;
+        });
       }
 
-      const $node = $(node)
-      const $parent = $node.parent()
-      const parentElement = $parent[0]
-      
-      // Check if parent is an element (not a text node)
-      if (!parentElement || parentElement.type !== 'tag') {
-        return
-      }
-      
-      const parentTag = (parentElement as any).tagName?.toLowerCase()
-
-      // Skip if parent is an excluded tag
-      if (
-        parentTag === 'a' ||
-        parentTag === 'script' ||
-        parentTag === 'style' ||
-        parentTag === 'code' ||
-        parentTag === 'pre' ||
-        parentTag === 'h1' ||
-        parentTag === 'h2' ||
-        parentTag === 'h3' ||
-        parentTag === 'h4' ||
-        parentTag === 'h5' ||
-        parentTag === 'h6'
-      ) {
-        return // Skip if inside excluded tag
-      }
-
-      // Get text content
-      const text = $node.text()
-      if (!text || !pattern.test(text)) {
-        return // Person name not found
-      }
-
-      // Replace person name with link in text
-      const newText = text.replace(pattern, (match) => {
-        replacementsMade++
-        // Replace with link
-        return `<a href="/person/${slug}" class="person-link">${match}</a>`
-      })
-
-      // Replace text node with new HTML if changed
-      if (newText !== text) {
-        $node.replaceWith(newText)
-      }
+      return out;
     })
-  }
+    .join("");
 
-  console.log(`[transformHtmlWithPersonLinks] Made ${replacementsMade} replacements`)
-
-  // Get the body content (cheerio wraps in <html><body>)
-  const bodyHtml = $('body').html() || html
-  return bodyHtml
-}
-
-// Legacy function for backwards compatibility
-export function linkPersonNames(html: string, people: string[]): string {
-  const peopleWithSlugs = people.map(name => ({
-    name,
-    slug: slugifyPerson(name)
-  }))
-  return transformHtmlWithPersonLinks(html, peopleWithSlugs)
+  return { html: transformed, linkCount };
 }

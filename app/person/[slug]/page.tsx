@@ -1,133 +1,159 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { convertWordPressPost } from '@/lib/wordpress';
-
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Convert slug to person name: "fetty-wap" -> "Fetty Wap"
-function slugToPersonName(slug: string): string {
+import Link from "next/link";
+
+type WpPost = {
+  id: number;
+  slug: string;
+  date: string;
+  title?: { rendered?: string };
+  content?: { rendered?: string };
+};
+
+function slugToPersonName(slug: string) {
   return slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+    .split("-")
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-// Escape regex special characters
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function normalizeText(input: string): string {
-  return input
-    .replace(/<[^>]*>/g, ' ')       // strip HTML tags
-    .replace(/&[a-z]+;/gi, ' ')     // strip HTML entities
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
+function stripHtml(input: string) {
+  return (input || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#039;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
-function postMentionsPerson(post: any, personName: string): boolean {
-  const name = personName.toLowerCase();
+function buildNameRegex(personName: string) {
+  // Multi-word match allowing any whitespace between words, plus optional possessive.
+  // Example: "Fetty Wap" matches "Fetty   Wap" and "Fetty Wap's"
+  const tokens = personName
+    .trim()
+    .split(/\s+/)
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
-  const title = normalizeText(post.title?.rendered || '');
-  const content = normalizeText(post.content?.rendered || '');
+  const pattern = `\\b${tokens.join("\\s+")}(?:'s)?\\b`;
+  return new RegExp(pattern, "i");
+}
 
-  // Allow:
-  // Fetty Wap
-  // Fetty Wap's
-  // Rapper Fetty Wap
-  const regex = new RegExp(`\\b${name}(?:'s)?\\b`, 'i');
+function postMentionsPerson(post: WpPost, personName: string) {
+  const re = buildNameRegex(personName);
+  const title = stripHtml(post?.title?.rendered || "");
+  const content = stripHtml(post?.content?.rendered || "");
+  return re.test(title) || re.test(content);
+}
 
-  return regex.test(title) || regex.test(content);
+async function fetchWpPostsPage(page: number, perPage: number) {
+  const url =
+    `https://www.rapnews.com/wp-json/wp/v2/posts` +
+    `?per_page=${perPage}&page=${page}&_embed=1&orderby=date&order=desc`;
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "rapnews-server-fetch/1.0",
+    },
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    return { ok: false as const, url, status: res.status, body: text, posts: [] as WpPost[] };
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { ok: false as const, url, status: res.status, body: text, posts: [] as WpPost[] };
+  }
+
+  return { ok: true as const, url, status: res.status, body: "", posts: Array.isArray(data) ? (data as WpPost[]) : [] };
 }
 
 export default async function PersonPage({ params }: { params: { slug: string } }) {
   const slug = params.slug;
   const personName = slugToPersonName(slug);
 
-  // Fetch posts using WP search (tags endpoint is blocked)
-  const searchUrl = `https://www.rapnews.com/wp-json/wp/v2/posts?search=${encodeURIComponent(personName)}&per_page=50&orderby=date&order=desc&_embed=1`;
-  
-  let posts: any[] = [];
-  let status = 0;
-  let beforeFilterCount = 0;
-  
-  try {
-    const res = await fetch(searchUrl, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'rapnews-server-fetch/1.0',
-      },
-      cache: 'no-store',
-    });
-    
-    status = res.status;
-    
-    if (res.ok) {
-      const allPosts = await res.json();
-      beforeFilterCount = allPosts.length;
-      
-      // Post-filter to ensure actual mentions
-      posts = allPosts.filter((post: any) => postMentionsPerson(post, personName));
-    } else {
-      const body = await res.text().catch(() => '');
-      console.error('[PersonPage] WP search failed', { slug, personName, status, body: body.slice(0, 300) });
+  const perPage = 50;
+  const maxPagesToScan = 10; // 10 * 50 = 500 posts scanned max
+  const matches: WpPost[] = [];
+
+  // Scan recent pages until we find enough matches (or we hit limit)
+  let debugLastUrl = "";
+  let debugLastStatus = 0;
+  let debugLastError = "";
+
+  for (let page = 1; page <= maxPagesToScan; page++) {
+    const result = await fetchWpPostsPage(page, perPage);
+    debugLastUrl = result.url;
+    debugLastStatus = result.status;
+
+    if (!result.ok) {
+      debugLastError = (result.body || "").slice(0, 300);
+      break; // stop if WP blocks us
     }
-  } catch (error) {
-    console.error('[PersonPage] Fetch error', { slug, personName, error });
+
+    const filtered = result.posts.filter(p => postMentionsPerson(p, personName));
+    for (const p of filtered) {
+      matches.push(p);
+      if (matches.length >= 50) break;
+    }
+
+    // If WP returned fewer than perPage, no more posts
+    if (result.posts.length < perPage) break;
+    if (matches.length >= 50) break;
   }
 
-  // Convert WP posts to Article format
-  const articles = await Promise.all(
-    posts.map(post => convertWordPressPost(post))
-  );
-
-  const isDev = process.env.NODE_ENV !== 'production';
-
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-      {/* Debug UI (dev only) */}
-      {isDev && (
-        <div style={{ padding: 12, border: '1px solid #f0d58c', background: '#fff8df', borderRadius: 10, marginBottom: 18 }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>DEBUG: /person/[slug]</div>
-          <div><b>slug:</b> {slug}</div>
-          <div><b>personName:</b> {personName}</div>
-          <div><b>WP URL:</b> <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{searchUrl}</span></div>
-          <div><b>HTTP status:</b> {status}</div>
-          <div><b>posts before filter:</b> {beforeFilterCount}</div>
-          <div><b>posts after filter:</b> {posts.length}</div>
-        </div>
-      )}
-
-      <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 10 }}>{personName}</h1>
-      <p style={{ opacity: 0.7, marginBottom: 20 }}>
-        Showing {articles.length} article{articles.length === 1 ? '' : 's'} mentioning "{personName}"
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: "40px 16px" }}>
+      <h1 style={{ fontSize: 44, fontWeight: 800, marginBottom: 8 }}>{personName}</h1>
+      <p style={{ color: "#444", marginBottom: 24 }}>
+        Showing {matches.length} articles mentioning "{personName}"
       </p>
 
-      {articles.length === 0 ? (
-        <div style={{ padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>No articles found</div>
-          <div style={{ opacity: 0.7 }}>
-            {status === 0 
-              ? 'Unable to fetch articles at this time.'
-              : 'No articles mention this person yet.'}
-          </div>
+      {/* TEMP DEBUG (only show in production if you want; remove later) */}
+      <div style={{ background: "#fff7d6", border: "1px solid #f0d68a", padding: 12, borderRadius: 8, marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Debug</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <div><b>slug:</b> {slug}</div>
+          <div><b>personName:</b> {personName}</div>
+          <div><b>lastURL:</b> {debugLastUrl}</div>
+          <div><b>lastStatus:</b> {debugLastStatus}</div>
+          {debugLastError ? <div><b>lastError:</b> {debugLastError}</div> : null}
+          <div><b>scanLimit:</b> {maxPagesToScan} pages</div>
+        </div>
+      </div>
+
+      {matches.length === 0 ? (
+        <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>No articles found</h3>
+          <p style={{ marginTop: 8, color: "#444" }}>No articles mention this person yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {articles.map((article) => (
-            <div key={article.id} style={{ padding: 14, border: '1px solid #eee', borderRadius: 10 }}>
-              <Link href={`/${article.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>{article.title}</div>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {matches.map(post => (
+            <li key={post.id} style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
+              <Link href={`/article/${post.slug}`} style={{ fontSize: 18, fontWeight: 700, textDecoration: "none" }}>
+                {stripHtml(post?.title?.rendered || post.slug)}
               </Link>
-              <div style={{ marginTop: 6, opacity: 0.7, fontSize: 13 }}>
-                {article.date}
+              <div style={{ color: "#666", fontSize: 13, marginTop: 6 }}>
+                {new Date(post.date).toLocaleString()}
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </main>
   );
 }
