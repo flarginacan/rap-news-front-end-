@@ -50,7 +50,14 @@ export function transformHtmlWithPersonLinks(html: string, people: Array<{ name:
 
       const $node = $(node)
       const $parent = $node.parent()
-      const parentTag = $parent[0]?.tagName?.toLowerCase()
+      const parentElement = $parent[0]
+      
+      // Check if parent is an element (not a text node)
+      if (!parentElement || parentElement.type !== 'tag') {
+        return
+      }
+      
+      const parentTag = (parentElement as any).tagName?.toLowerCase()
 
       // Skip if parent is an excluded tag
       if (
