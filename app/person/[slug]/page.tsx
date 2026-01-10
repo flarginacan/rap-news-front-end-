@@ -146,7 +146,7 @@ export default async function PersonPage({ params }: { params: { slug: string } 
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {matches.map(post => (
             <li key={post.id} style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
-              <Link href={`/article/${post.slug}`} style={{ fontSize: 18, fontWeight: 700, textDecoration: "none" }}>
+              <Link href={`/${post.slug}`} style={{ fontSize: 18, fontWeight: 700, textDecoration: "none", color: "inherit" }}>
                 {stripHtml(post?.title?.rendered || post.slug)}
               </Link>
               <div style={{ color: "#666", fontSize: 13, marginTop: 6 }}>
