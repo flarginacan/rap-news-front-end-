@@ -54,8 +54,10 @@ function postMentionsPerson(post: WpPost, personName: string) {
 }
 
 async function fetchWpPostsPage(page: number, perPage: number) {
+  // Use direct Bluehost URL to bypass Vercel Security Checkpoint
+  const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me';
   const url =
-    `https://www.rapnews.com/wp-json/wp/v2/posts` +
+    `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts` +
     `?per_page=${perPage}&page=${page}&_embed=1&orderby=date&order=desc`;
 
   const res = await fetch(url, {
