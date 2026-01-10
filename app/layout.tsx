@@ -17,6 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* FRONTEND_DEPLOY_MARKER: PERSON_LINKS_V1 */}
+      </head>
       <body className="bg-white">
         {children}
         <Analytics />

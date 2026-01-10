@@ -93,17 +93,34 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   const terms = post._embedded?.['wp:term']?.[0] || []
   const category = categoryId ? getCategoryName(categoryId, terms) : 'NEWS'
   
-  // Extract people mentioned from tags (tags are in _embedded['wp:term'][1] typically)
+  // Extract people mentioned from tags (tags are in _embedded['wp:term'] typically)
   // WordPress returns terms as: [0] = categories, [1] = tags (if _embed is used)
   const allTerms = post._embedded?.['wp:term'] || []
-  const tagTerms = allTerms.find(termArray => 
-    Array.isArray(termArray) && termArray.length > 0 && termArray[0]?.taxonomy === 'post_tag'
-  ) || allTerms[1] || [] // Fallback to index 1 if taxonomy not specified
   
-  // Get people names from tags (these are the people mentioned)
+  // Flatten all terms and filter for post_tag taxonomy
+  const flatTerms = allTerms.flat()
+  const tagTerms = flatTerms.filter((term: any) => term?.taxonomy === 'post_tag')
+  
+  // Log for debugging
+  console.log(`[convertWordPressPost] Post ID: ${post.id}`)
+  console.log(`[convertWordPressPost] All terms arrays: ${allTerms.length}`)
+  console.log(`[convertWordPressPost] Tag terms found: ${tagTerms.length}`)
+  if (tagTerms.length > 0) {
+    console.log(`[convertWordPressPost] Tag names: ${tagTerms.map((t: any) => t.name).join(', ')}`)
+  }
+  
+  // Get people from tags - treat ALL post_tag as people tags for now
   const peopleMentioned = tagTerms
-    .map((tag: any) => tag.name || tag)
-    .filter((name: any) => name && typeof name === 'string' && name.length > 1)
+    .map((tag: any) => ({
+      name: tag.name || String(tag),
+      slug: tag.slug || slugifyPerson(tag.name || String(tag))
+    }))
+    .filter((p: any) => p.name && typeof p.name === 'string' && p.name.length > 1)
+  
+  console.log(`[convertWordPressPost] People mentioned: ${peopleMentioned.length}`)
+  if (peopleMentioned.length > 0) {
+    console.log(`[convertWordPressPost] People: ${peopleMentioned.map((p: any) => p.name).join(', ')}`)
+  }
 
   // Format date
   const date = new Date(post.date)

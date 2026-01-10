@@ -58,6 +58,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       console.log(`[ArticlePage] Content length: ${article.content.length} chars`)
       console.log(`[ArticlePage] Has href="https://rapnews.com": ${article.content.includes('href="https://rapnews.com"')}`)
       console.log(`[ArticlePage] Has canonical CTA: ${article.content.includes('Be sure to stay updated') && article.content.includes('href="https://rapnews.com"')}`)
+      console.log(`[ArticlePage] Has person-link: ${article.content.includes('person-link')}`)
+      console.log(`[ArticlePage] Has /person/ links: ${article.content.includes('/person/')}`)
     }
     
     // If no article found, show 404 page (not white screen)
@@ -66,11 +68,34 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       notFound()
     }
 
+    // Extract people from content for debug UI
+    const peopleMatches = article.content.match(/class="person-link"[^>]*>([^<]+)<\/a>/g) || []
+    const peopleNames = peopleMatches.map(m => {
+      const match = m.match(/>([^<]+)</)
+      return match ? match[1] : ''
+    }).filter(Boolean)
+    
+    // Extract tag info from content (we'll get this from the article object if available)
+    const hasPersonLinks = article.content.includes('person-link')
+    const personLinkCount = (article.content.match(/class="person-link"/g) || []).length
+
     return (
       <div className="min-h-screen bg-white">
         <Header />
         <main className="pt-20 md:pt-24 bg-white">
           <div className="max-w-4xl mx-auto">
+            {/* TEMPORARY DEBUG UI - Remove after verification */}
+            <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
+              <div className="font-bold mb-2">🔍 DEBUG INFO (Remove after verification):</div>
+              <div><strong>Slug:</strong> {slug}</div>
+              <div><strong>People found in content:</strong> {peopleNames.length > 0 ? peopleNames.join(', ') : 'None'}</div>
+              <div><strong>Person links in HTML:</strong> {personLinkCount}</div>
+              <div><strong>Transform applied:</strong> {hasPersonLinks ? 'YES ✅' : 'NO ❌'}</div>
+              <div><strong>Content preview (first 200 chars):</strong></div>
+              <pre className="bg-white p-2 mt-1 text-xs overflow-auto max-h-32 border">
+                {article.content.substring(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+              </pre>
+            </div>
             <ArticleCard article={article} showLink={false} />
             <ArticleFeed excludeSlug={slug} />
           </div>
