@@ -107,6 +107,7 @@ export default async function PersonPage({ params }: { params: { slug: string } 
     }
 
     const filtered = result.posts.filter(p => postMentionsPerson(p, personName));
+    console.log(`[PersonPage] Page ${page}: ${result.posts.length} posts, ${filtered.length} match "${personName}"`);
     for (const p of filtered) {
       matches.push(p);
       if (matches.length >= 50) break;
