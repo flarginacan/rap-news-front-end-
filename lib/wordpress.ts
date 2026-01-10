@@ -92,6 +92,18 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   const categoryId = post.categories?.[0]
   const terms = post._embedded?.['wp:term']?.[0] || []
   const category = categoryId ? getCategoryName(categoryId, terms) : 'NEWS'
+  
+  // Extract people mentioned from tags (tags are in _embedded['wp:term'][1] typically)
+  // WordPress returns terms as: [0] = categories, [1] = tags (if _embed is used)
+  const allTerms = post._embedded?.['wp:term'] || []
+  const tagTerms = allTerms.find(termArray => 
+    Array.isArray(termArray) && termArray.length > 0 && termArray[0]?.taxonomy === 'post_tag'
+  ) || allTerms[1] || [] // Fallback to index 1 if taxonomy not specified
+  
+  // Get people names from tags (these are the people mentioned)
+  const peopleMentioned = tagTerms
+    .map((tag: any) => tag.name || tag)
+    .filter((name: any) => name && typeof name === 'string' && name.length > 1)
 
   // Format date
   const date = new Date(post.date)
@@ -225,6 +237,12 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
 
   // Apply defensive CTA fix as last step
   content = forceCanonicalCTA(content)
+  
+  // Link person names in content (if people are mentioned)
+  if (peopleMentioned.length > 0) {
+    const { linkPersonNames } = await import('./person-links')
+    content = linkPersonNames(content, peopleMentioned)
+  }
 
   return {
     id: post.slug,

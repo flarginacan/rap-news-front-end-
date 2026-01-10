@@ -52,6 +52,16 @@
     @apply text-red-600 no-underline font-medium hover:underline;
   }
   
+  /* Person link styling - underlined and clickable */
+  .article-content .person-link {
+    @apply text-red-600 underline decoration-2 underline-offset-2 font-medium;
+    text-decoration-thickness: 2px;
+  }
+  
+  .article-content .person-link:hover {
+    @apply opacity-80;
+  }
+  
   .article-content ul,
   .article-content ol {
     @apply my-6 ml-6 space-y-2;
