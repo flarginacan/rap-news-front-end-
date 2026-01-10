@@ -66,6 +66,16 @@ function getCategoryName(categoryId: number, terms: any[]): string {
   return category?.name || 'NEWS'
 }
 
+// Helper function to slugify person names
+function slugifyPerson(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+    .trim()
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Collapse multiple hyphens
+}
+
 // Convert WordPress post to Article
 export async function convertWordPressPost(post: WordPressPost): Promise<Article> {
   // Check if content has Getty embed - if so, NEVER use featured image
