@@ -68,13 +68,25 @@ function getCategoryName(categoryId: number, terms: any[]): string {
 
 // Convert WordPress post to Article
 export async function convertWordPressPost(post: WordPressPost): Promise<Article> {
-  // Get featured image
-  let imageUrl = getDefaultImage()
-  if (post.featured_media) {
-    imageUrl = await getFeaturedImageUrl(post.featured_media)
-  } else if (post._embedded?.['wp:featuredmedia']?.[0]?.source_url) {
-    imageUrl = fixImageUrl(post._embedded['wp:featuredmedia'][0].source_url)
+  // Check if content has Getty embed - if so, NEVER use featured image
+  const rawContent = post.content.rendered || ''
+  const hasGettyEmbed = rawContent.includes('getty-embed-wrap') || 
+                        rawContent.includes('embed.gettyimages.com') ||
+                        rawContent.includes('gie-single') ||
+                        rawContent.includes('gettyimages.com')
+  
+  // Get featured image ONLY if there's no Getty embed
+  let imageUrl = ''
+  if (!hasGettyEmbed) {
+    // Only use default image if no featured media and no Getty embed
+    imageUrl = getDefaultImage()
+    if (post.featured_media) {
+      imageUrl = await getFeaturedImageUrl(post.featured_media)
+    } else if (post._embedded?.['wp:featuredmedia']?.[0]?.source_url) {
+      imageUrl = fixImageUrl(post._embedded['wp:featuredmedia'][0].source_url)
+    }
   }
+  // If hasGettyEmbed is true, imageUrl remains empty string (no featured image)
 
   // Get category
   const categoryId = post.categories?.[0]
@@ -116,7 +128,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   
   // Preserve Getty Images divs (they contain gettyimages.com URLs)
   // Remove other images from content (they're already shown at the top via featured image)
-  let content = post.content.rendered
+  let content = rawContent
   
   // First, extract and preserve Getty Images embed divs completely (including script tags)
   const gettyImageDivs: string[] = []

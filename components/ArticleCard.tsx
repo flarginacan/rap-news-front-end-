@@ -193,10 +193,46 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
-  // Check if content starts with a Getty Images div or iframe (we want to use that instead of featured image)
-  const hasGettyImageInContent = (contentHtml.trim().startsWith('<div') || contentHtml.trim().startsWith('<iframe')) && (contentHtml.includes('gettyimages.com') || contentHtml.includes('embed.gettyimages.com'))
+  // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)
+  const hasGettyImageInContent = contentHtml.includes('getty-embed-wrap') || 
+                                  contentHtml.includes('embed.gettyimages.com') ||
+                                  contentHtml.includes('gie-single') ||
+                                  contentHtml.includes('gettyimages.com');
   
-  // Execute scripts after content is rendered (for Getty Images embed widget)
+  // Extract Getty Images embed from content if present (including credit div)
+  let gettyImageHtml = '';
+  let contentWithoutGetty = contentHtml;
+  const gettyImageRef = useRef<HTMLDivElement>(null);
+  
+  if (hasGettyImageInContent) {
+    // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
+    // Pattern 1: New format - getty-embed-wrap div followed by credit div
+    const newFormatMatch = contentHtml.match(/<div[^>]*class=["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)?/i);
+    
+    // Pattern 2: Old format - gie-single div with scripts
+    const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
+    
+    if (newFormatMatch) {
+      // New format: getty-embed-wrap + credit div
+      gettyImageHtml = newFormatMatch[0];
+      // Remove it from content (including credit div)
+      contentWithoutGetty = contentHtml.replace(newFormatMatch[0], '').trim();
+    } else if (oldFormatMatch) {
+      // Old format: gie-single with scripts
+      const divEnd = oldFormatMatch.index! + oldFormatMatch[0].length;
+      const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
+      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
+      if (scriptMatch) {
+        gettyImageHtml = oldFormatMatch[0] + scriptMatch.join('');
+      } else {
+        gettyImageHtml = oldFormatMatch[0];
+      }
+      // Remove it from content (including scripts)
+      contentWithoutGetty = contentHtml.replace(gettyImageHtml, '').trim();
+    }
+  }
+  
+  // Execute scripts after content is rendered (for old Getty Images embed widget format only)
   useEffect(() => {
     if (contentRef.current && contentHtml.includes('gie-single')) {
       // Find and execute any script tags in the content
@@ -226,30 +262,6 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       }
     }
   }, [contentHtml])
-  
-  // Extract Getty Images embed from content if present
-  let gettyImageHtml = '';
-  let contentWithoutGetty = contentHtml;
-  const gettyImageRef = useRef<HTMLDivElement>(null);
-  
-  if (hasGettyImageInContent) {
-    // Extract the Getty Images div with ALL script tags (they come after the closing </div>)
-    // Pattern: <div>...gie-single...</div> followed by <script> tags
-    const gettyMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single|embed\.gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
-    if (gettyMatch && gettyMatch.index !== undefined) {
-      // Get the full match including scripts
-      const divEnd = gettyMatch.index + gettyMatch[0].length;
-      const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
-      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
-      if (scriptMatch) {
-        gettyImageHtml = gettyMatch[0] + scriptMatch.join('');
-      } else {
-        gettyImageHtml = gettyMatch[0];
-      }
-      // Remove it from content (including scripts)
-      contentWithoutGetty = contentHtml.replace(gettyImageHtml, '');
-    }
-  }
   
   // Execute scripts for Getty Images embed widget (both in extracted div and in content)
   useEffect(() => {
@@ -287,8 +299,9 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       });
     }
     
-    // Load Getty Images widget loader if needed
-    if (typeof window !== 'undefined' && !(window as any).gie && (gettyImageHtml.includes('gie-single') || contentHtml.includes('gie-single'))) {
+    // Load Getty Images widget loader if needed (only for old gie-single format, not for new iframe embeds)
+    if (typeof window !== 'undefined' && !(window as any).gie && 
+        (gettyImageHtml.includes('gie-single') || contentHtml.includes('gie-single'))) {
       const widgetScript = document.createElement('script');
       widgetScript.src = '//embed-cdn.gettyimages.com/widgets.js';
       widgetScript.charset = 'utf-8';
@@ -311,8 +324,8 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
         </div>
       )}
       
-      {/* Only show featured image if no Getty Images and content doesn't already have it */}
-      {!gettyImageHtml && !hasGettyImageInContent && (
+      {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
+      {!gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
         <div className="px-4 md:px-0">
           <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
             <img
