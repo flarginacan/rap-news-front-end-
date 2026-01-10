@@ -77,6 +77,58 @@ function slugifyPerson(name: string): string {
     .replace(/-+/g, '-') // Collapse multiple hyphens
 }
 
+const STOPWORDS_EXACT = new Set([
+  // days
+  "monday","tuesday","wednesday","thursday","friday","saturday","sunday",
+  // months
+  "january","february","march","april","may","june","july","august","september","october","november","december",
+  // generic words that should never be "people"
+  "rapper","album","music","song","songs","track","tracks","single","video","tour","concert","festival",
+  "exclusive","news","hip-hop","hiphop","rap","release","released","prison","federal","case","recap",
+  // common locations that were getting linked (expand anytime)
+  "minnesota","philadelphia","new york","brooklyn","connecticut","california","puerto rico","atlanta","chicago",
+]);
+
+function normalizeWord(s: string) {
+  return s.trim().toLowerCase();
+}
+
+// Heuristic filter: keep only tags that look like human names / stage names
+export function isLikelyPersonTag(name: string, slug?: string) {
+  const n = (name || "").trim();
+  if (!n) return false;
+
+  const lower = normalizeWord(n);
+  if (STOPWORDS_EXACT.has(lower)) return false;
+
+  // reject super short generic tags
+  if (lower.length < 4) return false;
+
+  // reject if it contains digits only or looks like a date
+  if (/^\d+$/.test(lower)) return false;
+
+  // reject if it's obviously a place/state/time-word pattern
+  if (/(city|state|county|avenue|street|road|st\.|ave\.|blvd)/i.test(n)) return false;
+
+  // accept if it's multi-word Proper Name (e.g. "Fetty Wap", "Willie Junior Maxwell II")
+  const words = n.split(/\s+/).filter(Boolean);
+  const isMultiWord = words.length >= 2;
+
+  // accept if it has typical stage-name capitalization (at least one capital letter)
+  const hasCapital = /[A-Z]/.test(n);
+
+  // accept if slug exists and looks like a person slug (contains a dash and letters)
+  const slugOk = slug ? /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(slug) : false;
+
+  // stricter: if single word, require capital AND slugOk AND not a stopword
+  if (!isMultiWord) {
+    return hasCapital && slugOk && !STOPWORDS_EXACT.has(lower);
+  }
+
+  // multi-word: require capital letters somewhere
+  return hasCapital;
+}
+
 // Convert WordPress post to Article
 export async function convertWordPressPost(post: WordPressPost): Promise<Article> {
   // Check if content has Getty embed - if so, NEVER use featured image
