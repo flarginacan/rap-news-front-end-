@@ -405,35 +405,22 @@ function forceCanonicalCTA(html: string): string {
 // Fetch a single post by slug
 export async function fetchWordPressPostBySlug(slug: string): Promise<Article | null> {
   try {
-    // Use www.rapnews.com to avoid ModSecurity blocking
-    // Use non-browser headers to avoid 406 Mod_Security errors
-    const apiUrl = `https://www.rapnews.com/wp-json/wp/v2/posts?slug=${slug}&_embed=1`
+    const url = `https://www.rapnews.com/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed=1`
     
-    console.log(`[fetchWordPressPostBySlug] Fetching: ${apiUrl}`)
+    console.log(`[fetchWordPressPostBySlug] Fetching: ${url}`)
     
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'rapnews-server-fetch/1.0', // Non-browser UA to avoid ModSecurity
-      },
-      next: { revalidate: 60 }, // Cache for 60 seconds
+    const res = await fetch(url, {
+      headers: wpHeaders(),
+      next: { revalidate: 60 },
     })
 
-    if (!response.ok) {
-      // Read response body for debugging
-      const errorText = await response.text().catch(() => 'Could not read error body')
-      console.error(`[fetchWordPressPostBySlug] WP FETCH FAILED`, {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText.slice(0, 200),
-        slug: slug,
-      })
-      
-      // Return null so page can show notFound() instead of white screen
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error('[WP] fetchWordPressPostBySlug failed', { slug, status: res.status, body: body.slice(0, 300) })
       return null
     }
 
-    const posts: WordPressPost[] = await response.json()
+    const posts = (await res.json()) as WordPressPost[]
     
     if (!posts || posts.length === 0) {
       console.log(`[fetchWordPressPostBySlug] No post found for slug: ${slug}`)
@@ -449,9 +436,37 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
       console.error('[fetchWordPressPostBySlug] Error message:', error.message)
       console.error('[fetchWordPressPostBySlug] Error stack:', error.stack)
     }
-    // Return null so page can show notFound() instead of white screen
     return null
   }
+}
+
+// Fetch tag by slug (for /person pages)
+export async function fetchTagBySlug(tagSlug: string) {
+  const url = `https://www.rapnews.com/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`
+  const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 300 } })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('[WP] fetchTagBySlug failed', { tagSlug, status: res.status, body: body.slice(0, 300) })
+    return null
+  }
+
+  const tags = (await res.json()) as any[]
+  return tags?.[0] ?? null
+}
+
+// Fetch posts by tag ID (for /person pages)
+export async function fetchPostsByTagId(tagId: number, perPage = 20) {
+  const url = `https://www.rapnews.com/wp-json/wp/v2/posts?tags=${tagId}&per_page=${perPage}&_embed=1&orderby=date&order=desc`
+  const res = await fetch(url, { headers: wpHeaders(), next: { revalidate: 60 } })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('[WP] fetchPostsByTagId failed', { tagId, status: res.status, body: body.slice(0, 300) })
+    return []
+  }
+
+  return (await res.json()) as any[]
 }
 
 // Fetch posts from WordPress
