@@ -223,6 +223,9 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // Ensure proper paragraph spacing
   content = content.replace(/<\/p>\s*<p>/gi, '</p>\n\n<p>')
 
+  // Apply defensive CTA fix as last step
+  content = forceCanonicalCTA(content)
+
   return {
     id: post.slug,
     slug: post.slug,
@@ -236,29 +239,99 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   }
 }
 
+// Force canonical CTA - defensive fix to ensure CTA is always correct
+function forceCanonicalCTA(html: string): string {
+  if (!html || typeof html !== 'string') return html
+
+  const canonicalCTA = '<p>Be sure to stay updated on the entire story — check in daily at <a href="https://rapnews.com" target="_blank" rel="noopener noreferrer">RapNews.com</a>.</p>'
+
+  // Check if canonical CTA already exists and is correct
+  if (html.includes('href="https://rapnews.com"') && 
+      html.includes('target="_blank"') &&
+      html.includes('>RapNews.com</a>')) {
+    // Already has correct CTA, but ensure there's only one
+    const ctaCount = (html.match(/Be sure to stay updated/gi) || []).length
+    if (ctaCount === 1) {
+      return html // Already perfect
+    }
+  }
+
+  // Remove any existing CTA-like paragraphs/sentences near the end
+  // Match paragraphs containing CTA keywords
+  let cleaned = html
+    .replace(/<p[^>]*>[^<]*(Be sure to stay updated|check in daily)[\s\S]*?<\/p>/gi, '')
+    .replace(/(Be sure to stay updated|check in daily)[\s\S]*$/gi, '')
+    .trim()
+
+  // Remove trailing closing tags if any
+  cleaned = cleaned.replace(/<\/p>\s*$/g, '')
+  cleaned = cleaned.trim()
+
+  // Remove trailing period if present
+  if (cleaned.endsWith('.')) {
+    cleaned = cleaned.slice(0, -1).trim()
+  }
+
+  // Ensure content ends cleanly (close any open tags if needed)
+  if (cleaned.length > 0 && !cleaned.endsWith('</p>') && !cleaned.endsWith('>')) {
+    // If last character is not a closing tag, ensure we have proper structure
+    if (!cleaned.match(/<\/[^>]+>$/)) {
+      cleaned = cleaned + '</p>'
+    }
+  }
+
+  // Append canonical CTA
+  return cleaned + '\n' + canonicalCTA
+}
+
 // Fetch a single post by slug
 export async function fetchWordPressPostBySlug(slug: string): Promise<Article | null> {
   try {
-    const response = await fetch(
-      `${WORDPRESS_API_URL}/posts?slug=${slug}&_embed`,
-      {
-        next: { revalidate: 60 } // Cache for 60 seconds
-      }
-    )
+    // Use www.rapnews.com to avoid ModSecurity blocking
+    // Use non-browser headers to avoid 406 Mod_Security errors
+    const apiUrl = `https://www.rapnews.com/wp-json/wp/v2/posts?slug=${slug}&_embed=1`
+    
+    console.log(`[fetchWordPressPostBySlug] Fetching: ${apiUrl}`)
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'rapnews-server-fetch/1.0', // Non-browser UA to avoid ModSecurity
+      },
+      next: { revalidate: 60 }, // Cache for 60 seconds
+    })
 
     if (!response.ok) {
-      throw new Error(`WordPress API error: ${response.status}`)
+      // Read response body for debugging
+      const errorText = await response.text().catch(() => 'Could not read error body')
+      console.error(`[fetchWordPressPostBySlug] WP FETCH FAILED`, {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.slice(0, 200),
+        slug: slug,
+      })
+      
+      // Return null so page can show notFound() instead of white screen
+      return null
     }
 
     const posts: WordPressPost[] = await response.json()
     
-    if (posts.length === 0) {
+    if (!posts || posts.length === 0) {
+      console.log(`[fetchWordPressPostBySlug] No post found for slug: ${slug}`)
       return null
     }
 
+    console.log(`[fetchWordPressPostBySlug] Post found: ${posts[0].id} - ${posts[0].title?.rendered || posts[0].title}`)
+    
     return await convertWordPressPost(posts[0])
   } catch (error) {
-    console.error('Error fetching WordPress post:', error)
+    console.error('[fetchWordPressPostBySlug] Error fetching WordPress post:', error)
+    if (error instanceof Error) {
+      console.error('[fetchWordPressPostBySlug] Error message:', error.message)
+      console.error('[fetchWordPressPostBySlug] Error stack:', error.stack)
+    }
+    // Return null so page can show notFound() instead of white screen
     return null
   }
 }

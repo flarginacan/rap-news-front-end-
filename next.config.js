@@ -14,6 +14,12 @@ const nextConfig = {
         source: '/wp-content/:path*',
         destination: 'https://tsf.dvj.mybluehost.me/wp-content/:path*',
       },
+      // Rewrite root-level slugs to /article/:slug
+      // This allows /exclusive-... to work and route to /article/exclusive-...
+      {
+        source: '/:slug((?!wp-json|wp-admin|wp-content|api|_next|favicon.ico|robots.txt|sitemap.xml).*)',
+        destination: '/article/:slug',
+      },
     ];
   },
   async redirects() {
