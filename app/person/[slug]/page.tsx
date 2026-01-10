@@ -135,6 +135,10 @@ export default async function PersonPage({ params }: { params: { slug: string } 
           <div><b>lastStatus:</b> {debugLastStatus}</div>
           {debugLastError ? <div><b>lastError:</b> {debugLastError}</div> : null}
           <div><b>scanLimit:</b> {maxPagesToScan} pages</div>
+          <div><b>matches found:</b> {matches.length}</div>
+          {matches.length > 0 && (
+            <div><b>first match title:</b> {stripHtml(matches[0]?.title?.rendered || '')}</div>
+          )}
         </div>
       </div>
 
