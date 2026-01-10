@@ -215,8 +215,9 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
     if (newFormatMatch) {
       // New format: getty-embed-wrap + credit div
       gettyImageHtml = newFormatMatch[0];
-      // Remove it from content (including credit div)
-      contentWithoutGetty = contentHtml.replace(newFormatMatch[0], '').trim();
+      // Remove it from content (including credit div) - escape special chars and remove all instances
+      const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
     } else if (oldFormatMatch) {
       // Old format: gie-single with scripts
       const divEnd = oldFormatMatch.index! + oldFormatMatch[0].length;

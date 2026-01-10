@@ -130,14 +130,20 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // Remove other images from content (they're already shown at the top via featured image)
   let content = rawContent
   
-  // First, extract and preserve Getty Images embed divs completely (including script tags)
+  // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
   const gettyImageDivs: string[] = []
-  // Match the entire Getty Images div structure including script tags (may span multiple lines)
-  // Pattern: <div> containing gettyimages.com OR gie-single class, including all script tags
-  // Updated to capture scripts that come AFTER the closing </div> tag
-  const gettyImagePattern = /<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>/gi
+  // Match the entire Getty Images div structure including:
+  // - New format: getty-embed-wrap div + credit div
+  // - Old format: div with gettyimages.com or gie-single class + scripts
+  // Pattern 1: New format - getty-embed-wrap div followed by credit div
+  const newFormatPattern = /<div[^>]*class=["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)?/gi
   let match
-  while ((match = gettyImagePattern.exec(content)) !== null) {
+  while ((match = newFormatPattern.exec(content)) !== null) {
+    gettyImageDivs.push(match[0])
+  }
+  // Pattern 2: Old format - div with gettyimages.com or gie-single
+  const oldFormatPattern = /<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>/gi
+  while ((match = oldFormatPattern.exec(content)) !== null) {
     // Also capture any script tags immediately after the div
     const divEnd = match.index + match[0].length
     const afterDiv = content.substring(divEnd, divEnd + 500)
@@ -151,7 +157,9 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   }
   
   // Remove the Getty Images divs from content temporarily (we'll restore them)
-  // Match divs with gettyimages.com or gie-single, plus following script tags
+  // Match new format: getty-embed-wrap + credit div
+  content = content.replace(/<div[^>]*class=["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)?/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  // Match old format: divs with gettyimages.com or gie-single, plus following script tags
   content = content.replace(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
   
   // Remove img tags and figure tags containing images
@@ -198,6 +206,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   }
   
   // Restore Getty Images divs at the beginning (before any content)
+  // ArticleCard will extract it and show it at the top, then remove it from content
   if (gettyImageDivs.length > 0) {
     // Replace placeholder with the actual Getty Images divs (preserving all classes, styles, and scripts)
     content = content.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs[0])
