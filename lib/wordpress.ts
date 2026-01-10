@@ -256,9 +256,17 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   content = forceCanonicalCTA(content)
   
   // Link person names in content (if people are mentioned)
+  console.log(`[convertWordPressPost] Before person linking: peopleMentioned.length = ${peopleMentioned.length}`)
   if (peopleMentioned.length > 0) {
-    const { linkPersonNames } = await import('./person-links')
-    content = linkPersonNames(content, peopleMentioned)
+    const { transformHtmlWithPersonLinks } = await import('./person-links')
+    const beforeLength = content.length
+    content = transformHtmlWithPersonLinks(content, peopleMentioned)
+    const afterLength = content.length
+    console.log(`[convertWordPressPost] After person linking: content length ${beforeLength} -> ${afterLength}`)
+    console.log(`[convertWordPressPost] Contains person-link: ${content.includes('person-link')}`)
+    console.log(`[convertWordPressPost] Contains /person/: ${content.includes('/person/')}`)
+  } else {
+    console.log(`[convertWordPressPost] No people mentioned, skipping person linking`)
   }
 
   return {
