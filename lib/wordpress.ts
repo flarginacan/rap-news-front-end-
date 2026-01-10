@@ -173,12 +173,16 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   }
   
   // Get people from tags - treat ALL post_tag as people tags for now
-  const peopleMentioned = tagTerms
-    .map((tag: any) => ({
-      name: tag.name || String(tag),
-      slug: tag.slug || slugifyPerson(tag.name || String(tag))
+  // Get people from tags - filter to only real person names
+  const people = tagTerms
+    .map((t: any) => ({
+      name: t?.name?.trim(),
+      slug: t?.slug?.trim(),
     }))
-    .filter((p: any) => p.name && typeof p.name === 'string' && p.name.length > 1)
+    .filter((p: any) => p.name && p.slug)
+    .filter((p: any) => isLikelyPersonTag(p.name, p.slug))
+  
+  const peopleMentioned = people
   
   console.log(`[convertWordPressPost] People mentioned: ${peopleMentioned.length}`)
   if (peopleMentioned.length > 0) {
