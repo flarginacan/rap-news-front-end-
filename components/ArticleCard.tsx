@@ -318,7 +318,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
         <div className="px-4 md:px-0 mb-6 md:mb-8">
           <div 
             ref={gettyImageRef}
-            className="max-w-full overflow-hidden"
+            className="max-w-full overflow-visible"
             style={{ maxWidth: '100%', width: '100%' }}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
           />
