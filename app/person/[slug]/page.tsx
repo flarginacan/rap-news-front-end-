@@ -18,29 +18,28 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Extract plain text from HTML (simple version)
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
+function normalizeText(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, ' ')       // strip HTML tags
+    .replace(/&[a-z]+;/gi, ' ')     // strip HTML entities
     .replace(/\s+/g, ' ')
+    .toLowerCase()
     .trim();
 }
 
-// Check if post actually mentions the person
 function postMentionsPerson(post: any, personName: string): boolean {
-  const escapedName = escapeRegex(personName);
-  // Allow word boundaries, possessives, and punctuation
-  const pattern = new RegExp(`\\b${escapedName}\\b[''s]?`, 'i');
-  
-  const title = post.title?.rendered || post.title || '';
-  const content = post.content?.rendered || post.content || '';
-  
-  const titleText = stripHtml(title);
-  const contentText = stripHtml(content);
-  
-  return pattern.test(titleText) || pattern.test(contentText);
+  const name = personName.toLowerCase();
+
+  const title = normalizeText(post.title?.rendered || '');
+  const content = normalizeText(post.content?.rendered || '');
+
+  // Allow:
+  // Fetty Wap
+  // Fetty Wap's
+  // Rapper Fetty Wap
+  const regex = new RegExp(`\\b${name}(?:'s)?\\b`, 'i');
+
+  return regex.test(title) || regex.test(content);
 }
 
 export default async function PersonPage({ params }: { params: { slug: string } }) {
