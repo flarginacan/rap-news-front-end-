@@ -30,6 +30,7 @@ interface WordPressPost {
       id: number
       name: string
       slug: string
+      taxonomy?: string
     }>>
   }
 }
