@@ -314,12 +314,18 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   const articleContent = (
     <>
       {/* Show Getty Images above title if present */}
+      {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
       {gettyImageHtml && (
         <div className="px-4 md:px-0 mb-6 md:mb-8">
           <div 
             ref={gettyImageRef}
             className="max-w-full overflow-visible"
-            style={{ maxWidth: '100%', width: '100%' }}
+            style={{ 
+              maxWidth: '100%', 
+              width: '100%',
+              position: 'relative',
+              background: 'transparent'
+            }}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
           />
         </div>
