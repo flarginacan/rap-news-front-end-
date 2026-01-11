@@ -94,11 +94,13 @@
     @apply my-8 border-gray-200;
   }
   
-  /* Getty Images embed styling - simple and clean */
+  /* Getty Images embed styling - no black space */
   .getty-embed-wrap {
     position: relative;
     width: 100%;
     max-width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
   }
   
   .getty-embed-wrap iframe {
@@ -108,6 +110,7 @@
     width: 100%;
     height: 100%;
     border: none;
+    object-fit: cover;
   }
   
   /* CRITICAL: Getty credit must ALWAYS be visible */
