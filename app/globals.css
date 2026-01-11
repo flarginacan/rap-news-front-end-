@@ -94,20 +94,24 @@
     @apply my-8 border-gray-200;
   }
   
-  /* Getty Images embed styling - no black space, let iframe size itself */
+  /* Getty Images embed styling - responsive, fills width, no black space */
   .getty-embed-wrap {
     position: relative;
     width: 100%;
     max-width: 100%;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
     margin: 32px 0 16px 0;
   }
   
   .getty-embed-wrap iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
     border: none;
-    display: block;
-    margin: 0;
-    padding: 0;
   }
   
   /* CRITICAL: Getty credit must ALWAYS be visible */
