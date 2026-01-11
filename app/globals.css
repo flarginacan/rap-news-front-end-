@@ -94,7 +94,43 @@
     @apply my-8 border-gray-200;
   }
   
-  /* Getty Images embed styling - ensure proper sizing */
+  /* Getty Images embed styling - simple and clean */
+  .getty-embed-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .getty-embed-wrap iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+  
+  /* CRITICAL: Getty credit must ALWAYS be visible */
+  .getty-credit {
+    display: block;
+    text-align: center;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+  }
+  
+  .getty-credit a {
+    color: #666;
+    text-decoration: none;
+  }
+  
+  .getty-credit a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Legacy support for old format */
   .article-content div[style*="text-align: center"] {
     @apply mt-2 md:mt-3 mb-6 md:mb-8;
     margin-left: auto;
