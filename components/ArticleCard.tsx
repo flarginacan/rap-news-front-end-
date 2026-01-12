@@ -9,6 +9,7 @@ interface ArticleCardProps {
   article: Article
   showLink?: boolean
   id?: string // Optional id for scrolling to pinned articles
+  mode?: 'feed' | 'article' // 'article' = full article page, 'feed' = feed card
 }
 
 // Simple markdown to HTML converter for basic formatting
@@ -273,7 +274,7 @@ function cleanWordPressContent(html: string): string {
   return markdownToHtml(decoded)
 }
 
-export default function ArticleCard({ article, showLink = true, id }: ArticleCardProps) {
+export default function ArticleCard({ article, showLink = true, id, mode }: ArticleCardProps) {
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
@@ -450,20 +451,31 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         </div>
         
         {(() => {
-          // STEP 1: Extract body HTML (handle both string and object formats)
-          const bodyHtml = typeof contentWithoutGetty === 'string'
-            ? contentWithoutGetty
-            : (contentWithoutGetty as any)?.rendered ?? ''
+          // Determine if this is the full article page
+          const isFullArticlePage = mode === 'article' || (!showLink && mode !== 'feed')
           
-          // STEP 1: Inject ?from= parameter into entity links RIGHT BEFORE final render
-          const injectedBodyHtml = !showLink 
-            ? injectFromIntoEntityLinks(bodyHtml, article.slug)
-            : bodyHtml
+          // Use the processed HTML (after Getty extraction and cleaning)
+          // This is the EXACT HTML that will be rendered
+          const originalBodyHtml = contentWithoutGetty
+          
+          // articleSlug must be available here — use article.slug
+          const articleSlugForFrom = article?.slug || ''
+          
+          // Inject ?from= parameter into entity links RIGHT BEFORE final render
+          // Only inject on full article page
+          const injectedBodyHtml = isFullArticlePage && articleSlugForFrom
+            ? injectFromIntoEntityLinks(originalBodyHtml, articleSlugForFrom)
+            : originalBodyHtml
+          
+          // ✅ PROOF MARKER: count how many ?from= parameters were injected
+          const injectedCount = (injectedBodyHtml.match(/\?from=/g) || []).length
           
           return (
             <div 
               ref={contentRef}
               className="article-content max-w-none"
+              data-article-slug={isFullArticlePage ? articleSlugForFrom : undefined}
+              data-injected-from-count={isFullArticlePage ? injectedCount : undefined}
               style={{ 
                 lineHeight: '1.75',
                 fontSize: '18px'

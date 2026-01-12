@@ -106,7 +106,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                 <div>Has &amp;lt;div (escaped): {article.content.includes('&lt;div') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
               </div>
             )}
-            <ArticleCard article={article} showLink={false} />
+            <ArticleCard article={article} showLink={false} mode="article" />
             <ArticleFeed excludeSlug={slug} />
           </div>
         </main>
