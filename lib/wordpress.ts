@@ -21,17 +21,18 @@ async function readResTextSafe(res: Response) {
 // Fetch with timeout and error handling
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  // Use global setTimeout (available in Node.js and browser)
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs)
   
   try {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
     })
-    clearTimeout(timeoutId)
+    globalThis.clearTimeout(timeoutId)
     return response
   } catch (error) {
-    clearTimeout(timeoutId)
+    globalThis.clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Fetch timeout after ${timeoutMs}ms: ${url}`)
     }
@@ -528,7 +529,13 @@ export async function fetchPostsByTagId(tagId: number, perPage = 50) {
     `&orderby=date` +
     `&order=desc`;
 
-  const debug = {
+  const debug: {
+    url: string;
+    tagId: number;
+    status?: number;
+    wpTotal?: string | null;
+    wpTotalPages?: string | null;
+  } = {
     url,
     tagId,
   };
@@ -555,7 +562,7 @@ export async function fetchPostsByTagId(tagId: number, perPage = 50) {
   } catch (error) {
     console.error('[WP] fetchPostsByTagId error:', error);
     if (error instanceof Error) {
-      console.error('[WP] fetchPostsByTagId failed', { tagId, ...debug, error: error.message });
+      console.error('[WP] fetchPostsByTagId failed', { ...debug, error: error.message });
     }
     // Return empty array on error so page can still render
     return { posts: [], debug };

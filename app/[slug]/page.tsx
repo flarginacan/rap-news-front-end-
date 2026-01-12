@@ -28,7 +28,7 @@ export default async function SlugPage({ params }: { params: { slug: string } })
   }
 
   // Content to render (will be set below)
-  let content: React.ReactNode = null
+  let content: JSX.Element | null = null
 
   // B) ENTITY FIRST (tag feed)
   try {
