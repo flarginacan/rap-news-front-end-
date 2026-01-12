@@ -278,11 +278,11 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   
   if (hasGettyImageInContent) {
     // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
-    // Pattern 1: New format - getty-embed-wrap div (more flexible matching)
-    const newFormatMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
+    // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
+    const newFormatMatch = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>)?/i);
     
-    // Pattern 2: Also try matching just getty-embed-wrap without strict class matching
-    const flexibleMatch = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>)?/i);
+    // Pattern 2: Also try matching with class attribute
+    const classMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
     
     // Pattern 3: Old format - gie-single div with scripts
     const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
@@ -293,10 +293,10 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
       // Remove it from content (including credit div) - escape special chars and remove all instances
       const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
-    } else if (flexibleMatch) {
-      // Flexible match: getty-embed-wrap (any format)
-      gettyImageHtml = flexibleMatch[0];
-      const escapedMatch = flexibleMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    } else if (classMatch) {
+      // Class-based match: getty-embed-wrap (any format)
+      gettyImageHtml = classMatch[0];
+      const escapedMatch = classMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
     } else if (oldFormatMatch) {
       // Old format: gie-single with scripts
