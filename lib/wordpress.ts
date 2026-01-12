@@ -454,7 +454,9 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
 
 // Fetch tag by slug (for /person pages)
 export async function fetchTagBySlug(tagSlug: string) {
-  const url = `https://www.rapnews.com/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`;
+  // Use direct Bluehost URL to bypass Vercel Security Checkpoint
+  const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`;
 
   const res = await fetch(url, {
     headers: wpHeaders(),
@@ -473,8 +475,10 @@ export async function fetchTagBySlug(tagSlug: string) {
 
 // Fetch posts by tag ID (for /person pages)
 export async function fetchPostsByTagId(tagId: number, perPage = 50) {
+  // Use direct Bluehost URL to bypass Vercel Security Checkpoint
+  const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
   const url =
-    `https://www.rapnews.com/wp-json/wp/v2/posts` +
+    `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts` +
     `?tags=${tagId}` +
     `&per_page=${perPage}` +
     `&_embed=1` +
