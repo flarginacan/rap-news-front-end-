@@ -137,8 +137,11 @@ export async function GET(request: NextRequest) {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }
       
-      const tagInfo = tagIdsParam ? `tagIds [${tagIds.join(', ')}]` : (tagId ? `tag ${tagId}` : '')
-      console.log(`[API] Fetched ${articles.length} articles for ${tagInfo}${articles.length > 0 ? ` (newest: ${articles[0].slug}, date: ${articles[0].date})` : ''}`)
+      // Logging
+      if (tagIdsParam || tagId) {
+        const tagIdsForLog = tagIdsParam ? tagIds : (tagId ? [parseInt(tagId)] : [])
+        console.log(`[API] Fetched ${articles.length} articles for tagIds: [${tagIdsForLog.join(', ')}]${articles.length > 0 ? ` (newest: ${articles[0].slug}, date: ${articles[0].date})` : ''}`)
+      }
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 
