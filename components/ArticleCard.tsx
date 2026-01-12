@@ -407,9 +407,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     <>
       {/* Show Getty Images above title if present */}
       {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
-      {/* Fix mobile white space: mt-0 on mobile, negative margin pulls it up to header */}
+      {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {gettyImageHtml && (
-        <div className={`mb-6 md:mb-8 ${!showLink ? 'mt-0 md:mt-0' : ''}`}>
+        <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
