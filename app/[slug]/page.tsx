@@ -27,6 +27,9 @@ export default async function SlugPage({ params }: { params: { slug: string } })
     notFound()
   }
 
+  // Content to render (will be set below)
+  let content: React.ReactNode = null
+
   // B) ENTITY FIRST (tag feed)
   try {
     console.log('[SlugPage] Checking for entity page (tag)...')
@@ -40,16 +43,24 @@ export default async function SlugPage({ params }: { params: { slug: string } })
       if (isInAllowlist) {
         console.log('[SlugPage] Tag is in allowlist, rendering entity page')
         
-        // Fetch posts for this tag
-        const { posts } = await fetchPostsByTagId(tag.id, 20)
-        console.log('[SlugPage POSTS]', posts?.length)
+        // Fetch posts for this tag (with error handling)
+        let posts: any[] = []
+        try {
+          const result = await fetchPostsByTagId(tag.id, 20)
+          posts = result.posts || []
+          console.log('[SlugPage POSTS]', posts?.length)
+        } catch (error) {
+          console.error('[SlugPage] Error fetching posts:', error)
+          // Continue with empty posts array - page will still render
+          posts = []
+        }
 
-        // Render entity page
-        return (
+        // Render entity page - ALWAYS render something even if posts fail
+        content = (
           <div className="min-h-screen bg-white">
             <Header />
             <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem', paddingTop: '6rem' }}>
-              <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800 }}>
+              <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, color: '#000' }}>
                 {tag.name}
               </h1>
               <p style={{ color: '#666', marginBottom: '2rem' }}>
@@ -58,7 +69,7 @@ export default async function SlugPage({ params }: { params: { slug: string } })
               
               {posts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
-                  <p>No articles yet for {tag.name}.</p>
+                  <p>No articles found for this tag yet.</p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '2rem' }}>
@@ -67,7 +78,7 @@ export default async function SlugPage({ params }: { params: { slug: string } })
                       key={post.id} 
                       style={{ borderBottom: '1px solid #eee', paddingBottom: '2rem' }}
                     >
-                      <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                      <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#000' }}>
                         <Link 
                           href={`/article/${post.slug}`}
                           style={{ color: '#dc2626', textDecoration: 'none' }}
@@ -103,27 +114,50 @@ export default async function SlugPage({ params }: { params: { slug: string } })
       console.error('[SlugPage] Error message:', error.message)
       console.error('[SlugPage] Error stack:', error.stack)
     }
+    // Continue to article check even if tag fetch fails
   }
 
   // C) ARTICLE SECOND
-  try {
-    console.log('[SlugPage] Checking for article...')
-    const article = await fetchWordPressPostBySlug(slug)
-    console.log('[SlugPage ARTICLE]', !!article)
-    
-    if (article) {
-      console.log('[SlugPage] Article found, redirecting to /article/' + slug)
-      redirect(`/article/${slug}`)
-    }
-  } catch (error) {
-    console.error('[SlugPage] Error checking article:', error)
-    if (error instanceof Error) {
-      console.error('[SlugPage] Error message:', error.message)
-      console.error('[SlugPage] Error stack:', error.stack)
+  if (!content) {
+    try {
+      console.log('[SlugPage] Checking for article...')
+      const article = await fetchWordPressPostBySlug(slug)
+      console.log('[SlugPage ARTICLE]', !!article)
+      
+      if (article) {
+        console.log('[SlugPage] Article found, redirecting to /article/' + slug)
+        redirect(`/article/${slug}`)
+      }
+    } catch (error) {
+      console.error('[SlugPage] Error checking article:', error)
+      if (error instanceof Error) {
+        console.error('[SlugPage] Error message:', error.message)
+        console.error('[SlugPage] Error stack:', error.stack)
+      }
     }
   }
 
-  // D) Not found
+  // D) Render or Not Found
+  if (content) {
+    // ERROR-PROOF DEBUG BANNER - ALWAYS RENDERS
+    return (
+      <main style={{ padding: 24, backgroundColor: '#fff', minHeight: '100vh' }}>
+        <div style={{ 
+          border: '2px solid red', 
+          padding: 12, 
+          marginBottom: 16, 
+          fontWeight: 700,
+          backgroundColor: '#fff',
+          color: '#000'
+        }}>
+          SlugPage Rendered: {slug}
+        </div>
+        {content}
+      </main>
+    )
+  }
+
+  // Not found
   console.log('[SlugPage] No entity or article found, calling notFound()')
   notFound()
 }

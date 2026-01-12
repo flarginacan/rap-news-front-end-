@@ -18,6 +18,36 @@ async function readResTextSafe(res: Response) {
   try { return await res.text(); } catch { return ''; }
 }
 
+// Fetch with timeout and error handling
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    return response
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Fetch timeout after ${timeoutMs}ms: ${url}`)
+    }
+    throw error
+  }
+}
+
+// Safe JSON parse with error handling
+function parseJSONSafe(text: string, url: string): any {
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    throw new Error(`Bad JSON from WP (${url}): ${text.slice(0, 200)}`)
+  }
+}
+
 interface WordPressPost {
   id: number
   title: {
@@ -457,24 +487,33 @@ export async function fetchTagBySlug(tagSlug: string) {
   // Use direct Bluehost URL to bypass Vercel Security Checkpoint
   const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
   // Request meta fields explicitly
-  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}&_fields=id,name,slug,meta`;
+  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}&_fields=id,name,slug,meta,count`;
 
   console.log(`[fetchTagBySlug] Fetching: ${url}`)
-  const res = await fetch(url, {
-    headers: wpHeaders(),
-    cache: 'no-store',
-  });
+  
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: wpHeaders(),
+      cache: 'no-store',
+    }, 10000);
 
-  if (!res.ok) {
-    const body = await readResTextSafe(res);
-    console.error('[WP] fetchTagBySlug failed', { tagSlug, status: res.status, body: body.slice(0, 300) });
-    return null;
+    if (!res.ok) {
+      const body = await readResTextSafe(res);
+      throw new Error(`WP fetch failed ${res.status} ${url}: ${body.slice(0, 300)}`);
+    }
+
+    const text = await res.text();
+    const tags = parseJSONSafe(text, url) as any[];
+    const tag = tags?.[0] ?? null;
+    console.log(`[fetchTagBySlug] Tag result:`, tag ? { id: tag.id, name: tag.name, slug: tag.slug, count: tag.count, hasMeta: !!tag.meta, meta: tag.meta } : 'null')
+    return tag;
+  } catch (error) {
+    console.error('[WP] fetchTagBySlug error:', error);
+    if (error instanceof Error) {
+      throw new Error(`fetchTagBySlug failed: ${error.message}`);
+    }
+    throw error;
   }
-
-  const tags = (await res.json()) as any[];
-  const tag = tags?.[0] ?? null;
-  console.log(`[fetchTagBySlug] Tag result:`, tag ? { id: tag.id, name: tag.name, slug: tag.slug, hasMeta: !!tag.meta, meta: tag.meta } : 'null')
-  return tag;
 }
 
 // Fetch posts by tag ID (for /person pages)
@@ -489,26 +528,38 @@ export async function fetchPostsByTagId(tagId: number, perPage = 50) {
     `&orderby=date` +
     `&order=desc`;
 
-  const res = await fetch(url, {
-    headers: wpHeaders(),
-    cache: 'no-store',
-  });
-
   const debug = {
     url,
-    status: res.status,
-    wpTotal: res.headers.get('x-wp-total'),
-    wpTotalPages: res.headers.get('x-wp-totalpages'),
+    tagId,
   };
 
-  if (!res.ok) {
-    const body = await readResTextSafe(res);
-    console.error('[WP] fetchPostsByTagId failed', { tagId, ...debug, body: body.slice(0, 300) });
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: wpHeaders(),
+      cache: 'no-store',
+    }, 10000);
+
+    debug.status = res.status;
+    debug.wpTotal = res.headers.get('x-wp-total');
+    debug.wpTotalPages = res.headers.get('x-wp-totalpages');
+
+    if (!res.ok) {
+      const body = await readResTextSafe(res);
+      throw new Error(`WP fetch failed ${res.status} ${url}: ${body.slice(0, 300)}`);
+    }
+
+    const text = await res.text();
+    const posts = parseJSONSafe(text, url) as any[];
+    console.log(`[fetchPostsByTagId] Fetched ${posts.length} posts for tag ${tagId}`);
+    return { posts, debug };
+  } catch (error) {
+    console.error('[WP] fetchPostsByTagId error:', error);
+    if (error instanceof Error) {
+      console.error('[WP] fetchPostsByTagId failed', { tagId, ...debug, error: error.message });
+    }
+    // Return empty array on error so page can still render
     return { posts: [], debug };
   }
-
-  const posts = (await res.json()) as any[];
-  return { posts, debug };
 }
 
 // Fetch posts from WordPress
