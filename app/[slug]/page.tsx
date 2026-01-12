@@ -14,10 +14,11 @@ export default async function SlugPage({
   searchParams 
 }: { 
   params: { slug: string }
-  searchParams?: { from?: string }
+  searchParams?: { from?: string; debug?: string }
 }) {
   const slug = params.slug
   const from = typeof searchParams?.from === 'string' ? searchParams.from : undefined
+  const debug = searchParams?.debug === '1'
 
   // Server-side logging at the TOP
   console.log('[SlugPage] slug=', slug)
@@ -49,10 +50,12 @@ export default async function SlugPage({
       console.log('[SlugPage] Slug is in allowlist, resolving entity tag group...')
       
       // Get canonical slug - if this is an alias, redirect to canonical
+      // IMPORTANT: Preserve query string (especially ?from=) when redirecting
       const canonicalSlug = getCanonicalSlug(slug)
       if (canonicalSlug !== slug) {
         console.log(`[SlugPage] Redirecting alias ${slug} to canonical ${canonicalSlug}`)
-        redirect(`/${canonicalSlug}`)
+        const redirectUrl = `/${canonicalSlug}${from ? `?from=${encodeURIComponent(from)}` : ''}${debug ? (from ? '&debug=1' : '?debug=1') : ''}`
+        redirect(redirectUrl)
       }
       
       // Resolve entity tag group by name (finds all duplicate tags automatically)
@@ -65,6 +68,9 @@ export default async function SlugPage({
           slugs: tagGroup.slugs,
         })
 
+        // Build API URL for debug display
+        const apiUrl = `/api/articles?tagIds=${tagGroup.tagIds.join(',')}${from ? `&pinSlug=${encodeURIComponent(from)}` : ''}${debug ? '&debug=1' : ''}`
+
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
         // Pass tagIds array directly and pinSlug if provided
@@ -73,6 +79,23 @@ export default async function SlugPage({
             <Header />
             <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
+                {debug && (
+                  <div style={{
+                    border: '2px solid #f59e0b',
+                    backgroundColor: '#fef3c7',
+                    padding: '12px',
+                    marginBottom: '16px',
+                    fontSize: '12px',
+                    fontFamily: 'monospace',
+                    borderRadius: '4px'
+                  }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>🔍 DEBUG MODE</div>
+                    <div><strong>entitySlug:</strong> {canonicalSlug}</div>
+                    <div><strong>from:</strong> {from || '(none)'}</div>
+                    <div><strong>resolvedTagIds:</strong> [{tagGroup.tagIds.join(', ')}] (length: {tagGroup.tagIds.length})</div>
+                    <div><strong>API URL:</strong> {apiUrl}</div>
+                  </div>
+                )}
                 <ArticleFeed tagIds={tagGroup.tagIds} pinSlug={from} />
               </div>
             </main>

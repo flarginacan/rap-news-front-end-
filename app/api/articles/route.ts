@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     const tagId = searchParams.get('tagId')
     const tagIdsParam = searchParams.get('tagIds') // NEW: Array of tag IDs
     const pinSlug = searchParams.get('pinSlug') // Article slug to pin at top
+    const debug = searchParams.get('debug') === '1'
+    const debug = searchParams.get('debug') === '1'
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
@@ -140,6 +142,20 @@ export async function GET(request: NextRequest) {
       }
       
       // Handle pinSlug: fetch pinned post and ensure it appears first
+      let pinnedInfo: {
+        found: boolean
+        wpSlug: string | null
+        wpId: number | null
+        wasInserted: boolean
+        error: string | null
+      } = {
+        found: false,
+        wpSlug: null,
+        wpId: null,
+        wasInserted: false,
+        error: null
+      }
+
       if (pinSlug && USE_WORDPRESS) {
         try {
           const { fetchWordPressPostBySlug } = await import('@/lib/wordpress')
@@ -154,6 +170,9 @@ export async function GET(request: NextRequest) {
           
           if (pinnedPost) {
             console.log(`[API] Pinned post found: ${pinnedPost.id}, slug: ${pinnedPost.slug}`)
+            pinnedInfo.found = true
+            pinnedInfo.wpSlug = pinnedPost.slug
+            pinnedInfo.wpId = parseInt(pinnedPost.id)
             
             // Also fetch raw WordPress post to get tags for debugging
             try {
@@ -173,9 +192,13 @@ export async function GET(request: NextRequest) {
                     console.warn(`[API] WARNING: Pinned post has ZERO tag overlap with entity tags - tagging pipeline may be failing!`)
                   }
                 }
+              } else {
+                pinnedInfo.error = `WP fetch failed: ${wpRes.status} ${wpRes.statusText}`
               }
             } catch (tagFetchError) {
+              const errorMsg = tagFetchError instanceof Error ? tagFetchError.message : String(tagFetchError)
               console.error(`[API] Could not fetch tags for pinned post:`, tagFetchError)
+              pinnedInfo.error = `Tag fetch error: ${errorMsg}`
             }
             
             // Check if pinned post is already in results
@@ -185,19 +208,24 @@ export async function GET(request: NextRequest) {
               // Not in results - add to front
               console.log(`[API] Pinned post not in results, adding to front`)
               articles.unshift(pinnedPost)
+              pinnedInfo.wasInserted = true
             } else if (existingIndex > 0) {
               // In results but not first - move to front
               console.log(`[API] Pinned post found at index ${existingIndex}, moving to front`)
               articles.splice(existingIndex, 1)
               articles.unshift(pinnedPost)
+              pinnedInfo.wasInserted = true
             } else {
               console.log(`[API] Pinned post already at position 0`)
             }
           } else {
             console.log(`[API] Pinned post not found for slug: ${pinSlug}`)
+            pinnedInfo.error = `Post not found for slug: ${pinSlug}`
           }
         } catch (pinError) {
+          const errorMsg = pinError instanceof Error ? pinError.message : String(pinError)
           console.error(`[API] Error fetching pinned post:`, pinError)
+          pinnedInfo.error = `Fetch error: ${errorMsg}`
           // Don't fail the whole request if pinning fails
         }
       }
@@ -210,16 +238,37 @@ export async function GET(request: NextRequest) {
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 
-      const response: ArticlesResponse = {
-        items: articles,
-        nextCursor,
-      }
-
       // Force no caching for tag requests
       const headers = new Headers()
       headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
       headers.set('Pragma', 'no-cache')
       headers.set('Expires', '0')
+
+      // If debug mode, return debug info
+      if (debug) {
+        const first5 = articles.slice(0, 5).map(a => ({
+          slug: a.slug,
+          rawDate: a.rawDate || a.date
+        }))
+        
+        return NextResponse.json({
+          received: {
+            tagId: tagId || null,
+            tagIds: tagIds.length > 0 ? tagIds : null,
+            pinSlug: pinSlug || null,
+            page: page
+          },
+          pinned: pinnedInfo,
+          first5: first5,
+          items: articles,
+          nextCursor,
+        }, { headers })
+      }
+
+      const response: ArticlesResponse = {
+        items: articles,
+        nextCursor,
+      }
 
       return NextResponse.json(response, { headers })
     } else {
