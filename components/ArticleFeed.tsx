@@ -40,13 +40,28 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
       const data: ArticlesResponse = await response.json()
       
       // Filter out excluded article if provided
-      const filteredItems = excludeSlug 
+      let filteredItems = excludeSlug 
         ? data.items.filter(item => item.slug !== excludeSlug)
         : data.items
       
+      // Deduplicate articles by ID (prevent same article appearing multiple times)
       if (currentCursor) {
-        setArticles(prev => [...prev, ...filteredItems])
+        // When appending, filter out articles we already have
+        setArticles(prev => {
+          const existingIds = new Set(prev.map(a => a.id))
+          const newItems = filteredItems.filter(item => !existingIds.has(item.id))
+          return [...prev, ...newItems]
+        })
       } else {
+        // When replacing, deduplicate within the new batch
+        const seenIds = new Set<string>()
+        filteredItems = filteredItems.filter(item => {
+          if (seenIds.has(item.id)) {
+            return false
+          }
+          seenIds.add(item.id)
+          return true
+        })
         setArticles(filteredItems)
       }
       

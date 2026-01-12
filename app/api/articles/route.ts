@@ -36,9 +36,20 @@ export async function GET(request: NextRequest) {
         const { posts } = await fetchPostsByTagId(parseInt(tagId), fetchCount)
         // Convert WordPress posts to Article format
         const allArticles = await Promise.all(posts.map(post => convertWordPressPost(post)))
+        
+        // Deduplicate articles by ID (in case WordPress returns duplicates)
+        const seenIds = new Set<string>()
+        const uniqueArticles = allArticles.filter(article => {
+          if (seenIds.has(article.id)) {
+            return false
+          }
+          seenIds.add(article.id)
+          return true
+        })
+        
         // Paginate manually
         const startIndex = (page - 1) * ITEMS_PER_PAGE
-        articles = allArticles.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+        articles = uniqueArticles.slice(startIndex, startIndex + ITEMS_PER_PAGE)
       } else {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }
