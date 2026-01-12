@@ -87,8 +87,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       <div className="min-h-screen bg-white">
         <Header />
         <EntityLinkInterceptor />
-        <main className="pt-16 md:pt-24 bg-white">
-          <div className="max-w-4xl mx-auto">
+        <main className="pt-0 md:pt-24 bg-white">
+          <div className="max-w-4xl mx-auto pt-16 md:pt-0">
             {process.env.NODE_ENV === 'development' && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
                 <div className="font-bold mb-2">🔍 DEBUG INFO (Development only):</div>
