@@ -57,36 +57,75 @@ function applyFixToGettyIframe(iframe: HTMLIFrameElement) {
 
 function fixAllGettyEmbeds() {
   const iframes = Array.from(document.querySelectorAll('iframe')) as HTMLIFrameElement[];
-  for (const iframe of iframes) applyFixToGettyIframe(iframe);
+  for (const iframe of iframes) {
+    // Skip if already fixed to prevent infinite loops
+    if (iframe.classList.contains('getty-fixed')) continue;
+    applyFixToGettyIframe(iframe);
+    iframe.classList.add('getty-fixed');
+  }
 
   // Getty sometimes injects inside .gie-single container
   const containers = Array.from(document.querySelectorAll('.gie-single, .gie-embed, [id^="gie-"], .getty-embed-fixed'));
   for (const el of containers) {
+    if ((el as HTMLElement).classList.contains('getty-container-fixed')) continue;
     (el as HTMLElement).style.width = '100%';
     (el as HTMLElement).style.maxWidth = '100%';
+    (el as HTMLElement).classList.add('getty-container-fixed');
   }
 }
 
 export default function GettyResponsiveFix() {
   useEffect(() => {
-    // Run immediately, then keep running as Getty injects async
-    fixAllGettyEmbeds();
+    let isRunning = false;
+    
+    const fixWithDebounce = () => {
+      if (isRunning) return;
+      isRunning = true;
+      
+      try {
+        fixAllGettyEmbeds();
+      } finally {
+        // Use requestAnimationFrame to debounce and prevent infinite loops
+        requestAnimationFrame(() => {
+          isRunning = false;
+        });
+      }
+    };
 
-    const observer = new MutationObserver(() => {
-      fixAllGettyEmbeds();
+    // Run immediately
+    fixWithDebounce();
+
+    const observer = new MutationObserver((mutations) => {
+      // Only process if there are actual changes to iframes or Getty containers
+      const hasRelevantChanges = mutations.some(mutation => {
+        if (mutation.type === 'childList') {
+          const added = Array.from(mutation.addedNodes);
+          return added.some(node => 
+            node.nodeType === 1 && (
+              (node as Element).tagName === 'IFRAME' ||
+              (node as Element).querySelector?.('iframe') ||
+              (node as Element).classList?.contains('gie-single') ||
+              (node as Element).classList?.contains('gie-embed')
+            )
+          );
+        }
+        return false;
+      });
+      
+      if (hasRelevantChanges) {
+        fixWithDebounce();
+      }
     });
 
-    observer.observe(document.documentElement, {
+    observer.observe(document.body, {
       childList: true,
       subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'width', 'height', 'src', 'class'],
     });
 
-    // Also re-run after page settles
-    const t1 = window.setTimeout(fixAllGettyEmbeds, 500);
-    const t2 = window.setTimeout(fixAllGettyEmbeds, 1500);
-    const t3 = window.setTimeout(fixAllGettyEmbeds, 3000);
+    // Also re-run after page settles (with delays)
+    const t1 = window.setTimeout(fixWithDebounce, 500);
+    const t2 = window.setTimeout(fixWithDebounce, 1500);
+    const t3 = window.setTimeout(fixWithDebounce, 3000);
 
     return () => {
       observer.disconnect();
