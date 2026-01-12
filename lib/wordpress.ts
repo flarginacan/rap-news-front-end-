@@ -236,7 +236,13 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   
   // Preserve Getty Images divs (they contain gettyimages.com URLs)
   // Remove other images from content (they're already shown at the top via featured image)
+  // CRITICAL: Decode any HTML entities that WordPress might have encoded
   let content = rawContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
   
   // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
   const gettyImageDivs: string[] = []

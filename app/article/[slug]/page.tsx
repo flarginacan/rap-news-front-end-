@@ -99,6 +99,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
               <pre className="bg-white p-2 mt-1 text-xs overflow-auto max-h-32 border">
                 {article.content.substring(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
               </pre>
+              <div className="mt-2"><strong>Debug checks:</strong></div>
+              <div>Has &lt;iframe: {article.content.includes('<iframe') ? 'YES ✅' : 'NO ❌'}</div>
+              <div>Has &lt;div class="getty-embed-wrap": {article.content.includes('<div class="getty-embed-wrap') || article.content.includes("<div class='getty-embed-wrap") ? 'YES ✅' : 'NO ❌'}</div>
+              <div>Has &amp;lt;iframe (escaped): {article.content.includes('&lt;iframe') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
+              <div>Has &amp;lt;div (escaped): {article.content.includes('&lt;div') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
             </div>
             <ArticleCard article={article} showLink={false} />
             <ArticleFeed excludeSlug={slug} />

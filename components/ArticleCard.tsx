@@ -191,10 +191,24 @@ function transformGettyEmbed(html: string): string {
 }
 
 function cleanWordPressContent(html: string): string {
+  // CRITICAL: Decode HTML entities FIRST - WordPress may have encoded them
+  // We need REAL HTML (<div>, <iframe>), not escaped text (&lt;div&gt;)
+  let decoded = html
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#8217;/g, "'")
+    .replace(/&#8216;/g, "'")
+    .replace(/&#8220;/g, '"')
+    .replace(/&#8221;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+  
   // If content looks like HTML (has tags), clean it up
-  if (html.includes('<') && html.includes('>')) {
+  if (decoded.includes('<') && decoded.includes('>')) {
     // STEP 1: Transform Getty embeds to safe placeholders BEFORE sanitizing
-    let transformed = transformGettyEmbed(html);
+    let transformed = transformGettyEmbed(decoded);
     
     // STEP 2: Preserve getty-embed-wrap and getty-credit divs (they're already safe)
     const gettyBlocks: string[] = [];
@@ -257,8 +271,8 @@ function cleanWordPressContent(html: string): string {
     
     return cleaned.trim()
   }
-  // Otherwise, treat as markdown
-  return markdownToHtml(html)
+  // Otherwise, treat as markdown (but still decode entities first)
+  return markdownToHtml(decoded)
 }
 
 export default function ArticleCard({ article, showLink = true }: ArticleCardProps) {
