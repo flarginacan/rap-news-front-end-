@@ -30,8 +30,12 @@ export async function GET(request: NextRequest) {
       if (tagId) {
         // Fetch posts by tag with proper WordPress pagination
         const { fetchPostsByTagId, convertWordPressPost } = await import('@/lib/wordpress')
-        // Use WordPress pagination (page parameter)
-        const { posts } = await fetchPostsByTagId(parseInt(tagId), ITEMS_PER_PAGE, page)
+        // Support comma-separated tag IDs (for canonical tag merging)
+        const tagIds = tagId.includes(',') 
+          ? tagId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+          : [parseInt(tagId)]
+        // Use WordPress pagination (page parameter) - supports multiple tag IDs
+        const { posts } = await fetchPostsByTagId(tagIds.length > 1 ? tagIds : tagIds[0], ITEMS_PER_PAGE, page)
         // Convert WordPress posts to Article format
         const allArticles = await Promise.all(posts.map(post => convertWordPressPost(post)))
         
@@ -65,7 +69,13 @@ export async function GET(request: NextRequest) {
         nextCursor,
       }
 
-      return NextResponse.json(response)
+      // Force no caching for tag requests
+      const headers = new Headers()
+      headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+      headers.set('Pragma', 'no-cache')
+      headers.set('Expires', '0')
+
+      return NextResponse.json(response, { headers })
     } else {
       // Use mock data (current setup)
       const allArticles = parseArticles()

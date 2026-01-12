@@ -463,12 +463,29 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   )
 
   if (showLink) {
+    // Use div with onClick instead of wrapping Link to avoid nested <a> tags
+    // Person links inside content are <a> tags, and nested anchors break navigation
     return (
-      <Link href={`/article/${article.slug}`} className="block group">
-        <article className="bg-white pb-8 md:pb-12 mb-8 md:mb-16 transition-all group-hover:shadow-lg rounded-lg md:rounded-xl overflow-hidden">
-          {articleContent}
-        </article>
-      </Link>
+      <article 
+        className="bg-white pb-8 md:pb-12 mb-8 md:mb-16 transition-all group-hover:shadow-lg rounded-lg md:rounded-xl overflow-hidden cursor-pointer"
+        onClick={() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = `/article/${article.slug}`
+          }
+        }}
+        role="link"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            if (typeof window !== 'undefined') {
+              window.location.href = `/article/${article.slug}`
+            }
+          }
+        }}
+      >
+        {articleContent}
+      </article>
     )
   }
 

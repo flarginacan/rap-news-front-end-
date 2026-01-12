@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { fetchTagBySlug } from '@/lib/wordpress'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 import { entityAllowlist } from '@/lib/entityAllowlist'
+import { getCanonicalSlugs } from '@/lib/entityCanonical'
 import Header from '@/components/Header'
 import ArticleFeed from '@/components/ArticleFeed'
 
@@ -44,16 +45,30 @@ export default async function SlugPage({ params }: { params: { slug: string } })
         console.log('[SlugPage] Tag is in allowlist, rendering entity page')
         console.log('[SlugPage POSTS] Tag ID:', tag.id, 'Tag Name:', tag.name, 'Tag Slug:', tag.slug)
 
+        // Get canonical slugs for this entity (handles duplicate tags)
+        const canonicalSlugs = getCanonicalSlugs(slug)
+        console.log('[SlugPage] Canonical slugs:', canonicalSlugs)
+        
+        // Fetch all tags for canonical slugs to get their IDs
+        const tagPromises = canonicalSlugs.map(s => fetchTagBySlug(s))
+        const allTags = await Promise.all(tagPromises)
+        const validTags = allTags.filter(t => t !== null)
+        const tagIds = validTags.map(t => t!.id)
+        
+        console.log('[SlugPage] All tag IDs for entity:', tagIds)
+        
+        // Use comma-separated tag IDs string for API (WordPress supports comma-separated in tags param)
+        // ArticleFeed will pass this to API, which will parse it
+        const tagIdForFeed = tagIds.length > 1 ? tagIds.join(',') : (tagIds[0] || tag.id)
+
         // Render entity page using the same ArticleFeed component as homepage
+        // NO rapper name header - just the feed
         content = (
           <div className="min-h-screen bg-white">
             <Header />
             <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
-                <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 mt-4 md:mt-6 leading-tight px-4 md:px-6 lg:px-8">
-                  {tag.name}
-                </h1>
-                <ArticleFeed tagId={tag.id} />
+                <ArticleFeed tagId={tagIdForFeed} />
               </div>
             </main>
           </div>

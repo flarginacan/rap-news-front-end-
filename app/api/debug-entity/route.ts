@@ -7,9 +7,10 @@ export const revalidate = 0
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get('slug') || 'future'
+  const expectedSlug = searchParams.get('expectedSlug')
 
   try {
-    console.log(`[debug-entity] Testing slug: ${slug}`)
+    console.log(`[debug-entity] Testing slug: ${slug}${expectedSlug ? `, expectedSlug: ${expectedSlug}` : ''}`)
     
     // Fetch tag
     const tag = await fetchTagBySlug(slug)
@@ -17,16 +18,25 @@ export async function GET(request: Request) {
     const tagId = tag?.id || null
     const count = tag?.count || 0
     
-    // Fetch posts if tag exists
+    // Build WordPress request URL with all params
+    const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+    const wpRequestUrl = tagId
+      ? `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts?tags=${tagId}&per_page=10&page=1&orderby=date&order=desc&_fields=id,slug,date,title,tags`
+      : null
+    
+    // Fetch posts if tag exists - use direct fetch to get tags field
     let postsCount = 0
     let firstPostTitle = null
     let newestPostSlug = null
     let newestPostDate = null
-    let firstFivePosts: Array<{ slug: string; date: string; title: string }> = []
+    let first10: Array<{ id: number; slug: string; date: string; title: string; tagIdsUsedOnPost: number[] }> = []
+    let includesExpectedSlug = false
     
-    if (tag && tag.id) {
+    if (tag && tag.id && wpRequestUrl) {
       try {
-        const result = await fetchPostsByTagId(tag.id, 20, 1)
+        // Use fetchPostsByTagId which already handles the WordPress API call correctly
+        const { fetchPostsByTagId } = await import('@/lib/wordpress')
+        const result = await fetchPostsByTagId(tag.id, 10, 1)
         const posts = result.posts || []
         postsCount = posts.length
         
@@ -37,12 +47,34 @@ export async function GET(request: Request) {
           newestPostDate = newestPost.date || null
           firstPostTitle = newestPost.title?.rendered?.replace(/<[^>]*>/g, '') || null
           
-          // Get first 5 posts with their slugs and dates
-          firstFivePosts = posts.slice(0, 5).map(post => ({
-            slug: post.slug || '',
-            date: post.date || '',
-            title: post.title?.rendered?.replace(/<[^>]*>/g, '') || ''
-          }))
+          // Get first 10 posts with their tag IDs
+          // Note: fetchPostsByTagId returns posts with _embedded, but tags might be in _embedded['wp:term']
+          // For now, we'll fetch tags separately or note that tags field may not be directly available
+          first10 = posts.slice(0, 10).map(post => {
+            // Try to get tags from post.tags or from _embedded
+            let tagIds: number[] = []
+            if (Array.isArray(post.tags)) {
+              tagIds = post.tags
+            } else if (post._embedded?.['wp:term']) {
+              // Tags are typically in _embedded['wp:term'][1] (index 0 is categories)
+              const allTerms = post._embedded['wp:term'] || []
+              const tagTerms = allTerms.flat().filter((t: any) => t?.taxonomy === 'post_tag')
+              tagIds = tagTerms.map((t: any) => t.id)
+            }
+            
+            return {
+              id: post.id,
+              slug: post.slug || '',
+              date: post.date || '',
+              title: post.title?.rendered?.replace(/<[^>]*>/g, '') || '',
+              tagIdsUsedOnPost: tagIds
+            }
+          })
+          
+          // Check if expected slug is included
+          if (expectedSlug) {
+            includesExpectedSlug = first10.some(p => p.slug === expectedSlug)
+          }
         }
       } catch (error) {
         console.error('[debug-entity] Error fetching posts:', error)
@@ -50,16 +82,20 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      slug,
-      tagFound,
-      tagId,
-      tagName: tag?.name || null,
-      count,
-      postsCount,
-      firstPostTitle,
-      newestPostSlug,
-      newestPostDate,
-      firstFivePosts,
+      resolvedSlug: slug,
+      tag: tag ? {
+        id: tag.id,
+        name: tag.name,
+        slug: tag.slug,
+        count: tag.count
+      } : null,
+      wpRequestUrlUsedForPosts: wpRequestUrl,
+      first10,
+      newestInWpByTagId: newestPostSlug ? {
+        slug: newestPostSlug,
+        date: newestPostDate
+      } : null,
+      includesExpectedSlug: expectedSlug ? includesExpectedSlug : null,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {

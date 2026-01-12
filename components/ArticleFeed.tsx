@@ -6,7 +6,7 @@ import ArticleCard from './ArticleCard'
 
 interface ArticleFeedProps {
   excludeSlug?: string
-  tagId?: number
+  tagId?: number | string // Support single ID or comma-separated string
 }
 
 export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {}) {
@@ -17,7 +17,7 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef(false)
-  const previousTagIdRef = useRef<number | undefined>(undefined)
+  const previousTagIdRef = useRef<number | string | undefined>(undefined)
 
   const fetchArticles = useCallback(async (currentCursor: string | null) => {
     if (loadingRef.current) return
@@ -30,6 +30,7 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
         params.set('cursor', currentCursor)
       }
       if (tagId) {
+        // tagId can be number or comma-separated string
         params.set('tagId', tagId.toString())
       }
       const url = `/api/articles?${params.toString()}`

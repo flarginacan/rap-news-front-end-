@@ -517,13 +517,17 @@ export async function fetchTagBySlug(tagSlug: string) {
   }
 }
 
-// Fetch posts by tag ID (for /person pages)
-export async function fetchPostsByTagId(tagId: number, perPage = 50, page = 1) {
+// Fetch posts by tag ID(s) - supports single ID or comma-separated list
+export async function fetchPostsByTagId(tagId: number | number[], perPage = 50, page = 1) {
   // Use direct Bluehost URL to bypass Vercel Security Checkpoint
   const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+  
+  // WordPress supports comma-separated tag IDs in the tags parameter
+  const tagIdsParam = Array.isArray(tagId) ? tagId.join(',') : tagId.toString()
+  
   const url =
     `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts` +
-    `?tags=${tagId}` +
+    `?tags=${tagIdsParam}` +
     `&per_page=${perPage}` +
     `&page=${page}` +
     `&_embed=1` +
@@ -532,7 +536,7 @@ export async function fetchPostsByTagId(tagId: number, perPage = 50, page = 1) {
 
   const debug: {
     url: string;
-    tagId: number;
+    tagId: number | number[];
     status?: number;
     wpTotal?: string | null;
     wpTotalPages?: string | null;
