@@ -28,12 +28,13 @@ export async function GET(request: NextRequest) {
       const page = cursor ? parseInt(cursor) : 1
       
       let articles
+      let tagIds: number[] = [] // Declare outside if block for logging
+      
       if (tagIdsParam || tagId) {
         // Fetch posts by tag with proper WordPress pagination
         const { fetchPostsByTagId, convertWordPressPost } = await import('@/lib/wordpress')
         
         // Parse tag IDs - prefer tagIds array, fallback to tagId
-        let tagIds: number[] = []
         if (tagIdsParam) {
           tagIds = tagIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
         } else if (tagId) {
