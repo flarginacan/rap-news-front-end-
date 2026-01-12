@@ -94,26 +94,6 @@
     @apply my-8 border-gray-200;
   }
   
-  /* Getty Images embed styling - responsive, fills width, no black space */
-  .getty-embed-wrap {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    padding-bottom: 56.25%; /* 16:9 aspect ratio */
-    height: 0;
-    overflow: hidden;
-    margin: 32px 0 16px 0;
-  }
-  
-  .getty-embed-wrap iframe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
-  
   /* CRITICAL: Getty credit must ALWAYS be visible */
   .getty-credit {
     display: block;
@@ -132,6 +112,52 @@
   
   .getty-credit a:hover {
     text-decoration: underline;
+  }
+  
+  /* === FIX GETTY EMBED BLACK BARS + MOBILE SIDE GAPS === */
+  
+  /* Outer Getty wrapper */
+  .getty-embed-wrap,
+  .getty-embed-wrap iframe {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Kill forced aspect-ratio padding that causes black bars */
+  .getty-embed-wrap {
+    padding-bottom: 0 !important;
+    height: auto !important;
+    background: transparent !important;
+  }
+  
+  /* Make iframe responsive */
+  .getty-embed-wrap iframe {
+    position: relative !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    background: transparent !important;
+  }
+  
+  /* Remove black bars under image */
+  iframe[src*="gettyimages.com"] {
+    display: block;
+    background: transparent !important;
+  }
+  
+  /* MOBILE: force edge-to-edge */
+  @media (max-width: 768px) {
+    .article-content,
+    .post-content,
+    .entry-content {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  
+    .getty-embed-wrap {
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      width: 100vw;
+    }
   }
   
   /* Legacy support for old format */
