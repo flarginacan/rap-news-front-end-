@@ -211,9 +211,21 @@ function cleanWordPressContent(html: string): string {
     let cleaned = transformed;
     
     // Remove WordPress-specific classes and inline styles
-    // (Getty blocks are already replaced with placeholders, so they won't be affected)
-    cleaned = cleaned.replace(/class="[^"]*"/gi, '')
-    cleaned = cleaned.replace(/style="[^"]*"/gi, '')
+    // BUT preserve getty-embed-wrap and getty-credit classes and styles
+    cleaned = cleaned.replace(/class="[^"]*"/gi, (match, offset, string) => {
+      const context = string.substring(Math.max(0, offset - 100), Math.min(string.length, offset + 100));
+      if (context.includes('getty-embed-wrap') || context.includes('getty-credit') || context.includes('getty-gie')) {
+        return match; // Preserve Getty classes
+      }
+      return '';
+    });
+    cleaned = cleaned.replace(/style="[^"]*"/gi, (match, offset, string) => {
+      const context = string.substring(Math.max(0, offset - 100), Math.min(string.length, offset + 100));
+      if (context.includes('getty-embed-wrap') || context.includes('getty-credit') || context.includes('getty-gie')) {
+        return match; // Preserve Getty styles
+      }
+      return '';
+    });
     cleaned = cleaned.replace(/<p><\/p>/gi, '')
     cleaned = cleaned.replace(/<p>\s*<\/p>/gi, '')
     // Remove empty paragraphs
