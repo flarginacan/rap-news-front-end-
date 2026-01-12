@@ -29,6 +29,25 @@ export async function GET(request: NextRequest) {
       console.log('[API] USE_WORDPRESS is true, fetching from WordPress...')
       const page = cursor ? parseInt(cursor) : 1
       
+      // FIX B: Fetch pinned post FIRST (before tag fetching) if pinSlug exists
+      // This ensures pinning works independently of tag overlap
+      let pinnedPost: any = null
+      if (pinSlug && USE_WORDPRESS) {
+        try {
+          const { fetchWordPressPostBySlug } = await import('@/lib/wordpress')
+          console.log(`[API] Fetching pinned post with slug: ${pinSlug} (before tag fetch)`)
+          pinnedPost = await fetchWordPressPostBySlug(pinSlug)
+          if (pinnedPost) {
+            console.log(`[API] Pinned post found: ${pinnedPost.id}, slug: ${pinnedPost.slug}`)
+          } else {
+            console.log(`[API] Pinned post not found for slug: ${pinSlug}`)
+          }
+        } catch (pinError) {
+          console.error(`[API] Error fetching pinned post:`, pinError)
+          // Continue without pinned post
+        }
+      }
+      
       let articles
       let tagIds: number[] = [] // Declare outside if block for logging
       
@@ -140,7 +159,8 @@ export async function GET(request: NextRequest) {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }
       
-      // Handle pinSlug: fetch pinned post and ensure it appears first
+      // FIX B: Handle pinSlug - ensure pinned post appears first BEFORE pagination
+      // This works independently of tag overlap - always pins if pinSlug is provided
       let pinnedInfo: {
         found: boolean
         wpSlug: string | null
@@ -155,78 +175,62 @@ export async function GET(request: NextRequest) {
         error: null
       }
 
-      if (pinSlug && USE_WORDPRESS) {
-        try {
-          const { fetchWordPressPostBySlug } = await import('@/lib/wordpress')
-          const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
-            ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
-            : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
-          
-          console.log(`[API] Pinning post with slug: ${pinSlug}`)
-          
-          // Fetch the pinned post directly by slug (as Article)
-          const pinnedPost = await fetchWordPressPostBySlug(pinSlug)
-          
-          if (pinnedPost) {
-            console.log(`[API] Pinned post found: ${pinnedPost.id}, slug: ${pinnedPost.slug}`)
-            pinnedInfo.found = true
-            pinnedInfo.wpSlug = pinnedPost.slug
-            pinnedInfo.wpId = parseInt(pinnedPost.id)
-            
-            // Also fetch raw WordPress post to get tags for debugging
-            try {
-              const wpRes = await fetch(
-                `${WORDPRESS_API_URL}/posts?slug=${encodeURIComponent(pinSlug)}&_fields=id,slug,tags`,
-                { headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' }, cache: 'no-store' }
-              )
-              if (wpRes.ok) {
-                const wpPosts = await wpRes.json()
-                if (wpPosts.length > 0) {
-                  const pinnedPostTags = wpPosts[0].tags || []
-                  const intersection = pinnedPostTags.filter((tid: number) => tagIds.includes(tid))
-                  console.log(`[API] Pinned post tags: [${pinnedPostTags.join(', ')}]`)
-                  console.log(`[API] Resolved entity tagIds: [${tagIds.join(', ')}]`)
-                  console.log(`[API] Tag intersection: [${intersection.join(', ')}] (${intersection.length} matches)`)
-                  if (intersection.length === 0) {
-                    console.warn(`[API] WARNING: Pinned post has ZERO tag overlap with entity tags - tagging pipeline may be failing!`)
-                  }
+      if (pinnedPost) {
+        pinnedInfo.found = true
+        pinnedInfo.wpSlug = pinnedPost.slug
+        pinnedInfo.wpId = parseInt(pinnedPost.id)
+        
+        // Also fetch raw WordPress post to get tags for debugging
+        if (tagIds.length > 0) {
+          try {
+            const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
+              ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
+              : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
+            const wpRes = await fetch(
+              `${WORDPRESS_API_URL}/posts?slug=${encodeURIComponent(pinSlug!)}&_fields=id,slug,tags`,
+              { headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' }, cache: 'no-store' }
+            )
+            if (wpRes.ok) {
+              const wpPosts = await wpRes.json()
+              if (wpPosts.length > 0) {
+                const pinnedPostTags = wpPosts[0].tags || []
+                const intersection = pinnedPostTags.filter((tid: number) => tagIds.includes(tid))
+                console.log(`[API] Pinned post tags: [${pinnedPostTags.join(', ')}]`)
+                console.log(`[API] Resolved entity tagIds: [${tagIds.join(', ')}]`)
+                console.log(`[API] Tag intersection: [${intersection.join(', ')}] (${intersection.length} matches)`)
+                if (intersection.length === 0) {
+                  console.warn(`[API] WARNING: Pinned post has ZERO tag overlap with entity tags - but will still be pinned!`)
                 }
-              } else {
-                pinnedInfo.error = `WP fetch failed: ${wpRes.status} ${wpRes.statusText}`
               }
-            } catch (tagFetchError) {
-              const errorMsg = tagFetchError instanceof Error ? tagFetchError.message : String(tagFetchError)
-              console.error(`[API] Could not fetch tags for pinned post:`, tagFetchError)
-              pinnedInfo.error = `Tag fetch error: ${errorMsg}`
-            }
-            
-            // Check if pinned post is already in results
-            const existingIndex = articles.findIndex(a => a.id === pinnedPost.id)
-            
-            if (existingIndex === -1) {
-              // Not in results - add to front
-              console.log(`[API] Pinned post not in results, adding to front`)
-              articles.unshift(pinnedPost)
-              pinnedInfo.wasInserted = true
-            } else if (existingIndex > 0) {
-              // In results but not first - move to front
-              console.log(`[API] Pinned post found at index ${existingIndex}, moving to front`)
-              articles.splice(existingIndex, 1)
-              articles.unshift(pinnedPost)
-              pinnedInfo.wasInserted = true
             } else {
-              console.log(`[API] Pinned post already at position 0`)
+              pinnedInfo.error = `WP fetch failed: ${wpRes.status} ${wpRes.statusText}`
             }
-          } else {
-            console.log(`[API] Pinned post not found for slug: ${pinSlug}`)
-            pinnedInfo.error = `Post not found for slug: ${pinSlug}`
+          } catch (tagFetchError) {
+            const errorMsg = tagFetchError instanceof Error ? tagFetchError.message : String(tagFetchError)
+            console.error(`[API] Could not fetch tags for pinned post:`, tagFetchError)
+            pinnedInfo.error = `Tag fetch error: ${errorMsg}`
           }
-        } catch (pinError) {
-          const errorMsg = pinError instanceof Error ? pinError.message : String(pinError)
-          console.error(`[API] Error fetching pinned post:`, pinError)
-          pinnedInfo.error = `Fetch error: ${errorMsg}`
-          // Don't fail the whole request if pinning fails
         }
+        
+        // CRITICAL: Pin BEFORE pagination - always unshift to front, dedupe by id
+        const existingIndex = articles.findIndex(a => a.id === pinnedPost.id)
+        
+        if (existingIndex === -1) {
+          // Not in results - add to front (works even if tags don't overlap)
+          console.log(`[API] Pinned post not in tag results, adding to front (independent of tag overlap)`)
+          articles.unshift(pinnedPost)
+          pinnedInfo.wasInserted = true
+        } else if (existingIndex > 0) {
+          // In results but not first - move to front
+          console.log(`[API] Pinned post found at index ${existingIndex}, moving to front`)
+          articles.splice(existingIndex, 1)
+          articles.unshift(pinnedPost)
+          pinnedInfo.wasInserted = true
+        } else {
+          console.log(`[API] Pinned post already at position 0`)
+        }
+      } else if (pinSlug) {
+        pinnedInfo.error = `Post not found for slug: ${pinSlug}`
       }
       
       // Logging

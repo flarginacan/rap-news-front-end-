@@ -3,7 +3,7 @@
 import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
-import EntityNavInterceptor from './EntityNavInterceptor'
+import EntityHrefPatcher from './EntityHrefPatcher'
 
 interface ArticleCardProps {
   article: Article
@@ -460,7 +460,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
           />
         ) : (
-          <EntityNavInterceptor articleSlug={article.slug}>
+          <EntityHrefPatcher articleSlug={article.slug}>
             <div 
               ref={contentRef}
               style={{ 
@@ -469,7 +469,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               }}
               dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
             />
-          </EntityNavInterceptor>
+          </EntityHrefPatcher>
         )}
       </div>
     </>
