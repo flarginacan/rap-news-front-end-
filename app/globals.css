@@ -117,33 +117,32 @@
   /* =========================================================
      Getty Embed Fix (remove black letterbox + full-bleed mobile)
      Targets HTML: <div class="getty-embed-wrap"><iframe .../></div>
+     Aspect ratio is set dynamically by GettyEmbedFix component
   ========================================================= */
   
   .getty-embed-wrap {
     position: relative !important;
-    height: 0 !important;
     overflow: hidden !important;
     max-width: 100% !important;
-    background: transparent !important;
-    /* IMPORTANT: override the bad inline padding-bottom:50% */
-    padding-bottom: 56.25% !important; /* 16:9 default (usually removes the big bottom black area) */
+
+    /* kill the old padding-bottom:50% + height:0 inline hack */
+    height: auto !important;
+    padding-bottom: 0 !important;
+
+    /* aspect-ratio is set dynamically by GettyEmbedFix (fallback here just in case) */
+    aspect-ratio: 16 / 9 !important;
   }
-  
-  /* If you STILL see a black bar under certain images, switch the line above to:
-     padding-bottom: 75% !important;  (4:3)
-     Some Getty embeds look better with 4:3. Start with 56.25% first. */
-  
+
   .getty-embed-wrap iframe {
     position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
+    inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
     border: 0 !important;
     display: block !important;
   }
-  
-  /* Full-bleed on mobile so it hits the screen edges (removes side "space") */
+
+  /* Full-bleed on mobile so it hits screen edges */
   @media (max-width: 768px) {
     .getty-embed-wrap {
       width: 100vw !important;
