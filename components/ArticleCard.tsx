@@ -110,53 +110,105 @@ interface ArticleCardProps {
 }
 
 // Clean WordPress HTML content
-function extractGettyBlocks(html: string) {
-  const blocks: string[] = [];
-  let out = html;
+function extractGettyConfig(scriptContent: string): any | null {
+  // Try to extract gie.widgets.load({ ... }) config
+  const loadMatch = scriptContent.match(/gie\.widgets\.load\s*\(\s*\{([^}]+)\}\s*\)/);
+  if (!loadMatch) return null;
 
-  const patterns: RegExp[] = [
-    // New wrapper format (if we transform to this)
-    /<div[^>]*class=["'][^"']*getty-embed-wrap[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
-    /<div[^>]*class=["'][^"']*getty-credit[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
-
-    // Old official Getty embed bundle: gie-single anchor
-    /<a[^>]*class=["'][^"']*\bgie-single\b[^"']*["'][^>]*>[\s\S]*?<\/a>/gi,
-
-    // Inline script that queues window.gie / loads widgets
-    /<script[^>]*>[\s\S]*?\b(window\.gie\b|gie\.widgets\.load\b|gie\()\b[\s\S]*?<\/script>/gi,
-
-    // External widgets loader script
-    /<script[^>]*src=["'][^"']*embed-cdn\.gettyimages\.com\/widgets\.js[^"']*["'][^>]*>\s*<\/script>/gi,
-  ];
-
-  // Replace matches with placeholders
-  patterns.forEach((re) => {
-    out = out.replace(re, (match) => {
-      const key = `__GETTY_BLOCK_${blocks.length}__`;
-      blocks.push(match);
-      return key;
-    });
-  });
-
-  return { html: out, blocks };
+  const configStr = `{${loadMatch[1]}}`;
+  try {
+    // Replace single quotes with double quotes for JSON
+    const jsonStr = configStr
+      .replace(/'/g, '"')
+      .replace(/(\w+):/g, '"$1":') // Add quotes to keys
+      .replace(/:\s*"([^"]+)"/g, (match, val) => {
+        // Handle numeric values
+        if (/^\d+$/.test(val)) return `:${val}`;
+        if (val === 'true' || val === 'false') return `:${val}`;
+        return match;
+      });
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
 }
 
-function restoreGettyBlocks(html: string, blocks: string[]) {
-  let out = html;
-  blocks.forEach((block, i) => {
-    out = out.replace(`__GETTY_BLOCK_${i}__`, block);
-  });
-  return out;
+function transformGettyEmbed(html: string): string {
+  let transformed = html;
+
+  // Pattern 1: New format - getty-embed-wrap with iframe (keep as-is, just ensure structure)
+  transformed = transformed.replace(
+    /<div[^>]*class=["'][^"']*getty-embed-wrap[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+    (match) => {
+      // If it already has an iframe, keep it
+      if (match.includes('<iframe')) {
+        return match;
+      }
+      return match;
+    }
+  );
+
+  // Pattern 2: Old format - gie-single anchor + scripts
+  transformed = transformed.replace(
+    /<a[^>]*class=["'][^"']*\bgie-single\b[^"']*["'][^>]*>[\s\S]*?<\/a>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi,
+    (match) => {
+      // Extract the config from scripts
+      const scriptMatch = match.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+      if (scriptMatch) {
+        const config = extractGettyConfig(scriptMatch[1]);
+        if (config) {
+          // Extract image ID from the anchor href or config
+          const imageId = config.items || match.match(/items:\s*['"](\d+)['"]/)?.[1] || '';
+          if (imageId) {
+            return `<div class="getty-embed-wrap"><div class="getty-gie" data-gie='${JSON.stringify(config)}'></div></div>`;
+          }
+        }
+      }
+      // If we can't parse, remove it
+      return '';
+    }
+  );
+
+  // Pattern 3: Scripts with gie.widgets.load - convert to placeholder
+  transformed = transformed.replace(
+    /<script[^>]*>[\s\S]*?\bgie\.widgets\.load\s*\([^)]+\)[\s\S]*?<\/script>/gi,
+    (match) => {
+      const config = extractGettyConfig(match);
+      if (config) {
+        return `<div class="getty-embed-wrap"><div class="getty-gie" data-gie='${JSON.stringify(config)}'></div></div>`;
+      }
+      return '';
+    }
+  );
+
+  // Remove any remaining Getty scripts (widgets.js loader)
+  transformed = transformed.replace(
+    /<script[^>]*src=["'][^"']*embed-cdn\.gettyimages\.com\/widgets\.js[^"']*["'][^>]*>\s*<\/script>/gi,
+    ''
+  );
+
+  return transformed;
 }
 
 function cleanWordPressContent(html: string): string {
   // If content looks like HTML (has tags), clean it up
   if (html.includes('<') && html.includes('>')) {
-    // STEP 1: Extract Getty blocks BEFORE sanitizing
-    const { html: withPlaceholders, blocks } = extractGettyBlocks(html);
+    // STEP 1: Transform Getty embeds to safe placeholders BEFORE sanitizing
+    let transformed = transformGettyEmbed(html);
     
-    // STEP 2: Run sanitization on content with placeholders
-    let cleaned = withPlaceholders;
+    // STEP 2: Preserve getty-embed-wrap and getty-credit divs (they're already safe)
+    const gettyBlocks: string[] = [];
+    transformed = transformed.replace(
+      /<div[^>]*class=["'][^"']*getty-embed-wrap[^"']*["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class=["'][^"']*getty-credit[^"']*["'][^>]*>[\s\S]*?<\/div>)?/gi,
+      (match) => {
+        const key = `__GETTY_SAFE_${gettyBlocks.length}__`;
+        gettyBlocks.push(match);
+        return key;
+      }
+    );
+    
+    // STEP 3: Run sanitization on content
+    let cleaned = transformed;
     
     // Remove WordPress-specific classes and inline styles
     // (Getty blocks are already replaced with placeholders, so they won't be affected)
@@ -186,10 +238,12 @@ function cleanWordPressContent(html: string): string {
       return match
     })
     
-    // STEP 3: Restore Getty blocks (they're preserved exactly as they were)
-    const restored = restoreGettyBlocks(cleaned, blocks);
+    // STEP 4: Restore Getty blocks
+    gettyBlocks.forEach((block, i) => {
+      cleaned = cleaned.replace(`__GETTY_SAFE_${i}__`, block);
+    });
     
-    return restored.trim()
+    return cleaned.trim()
   }
   // Otherwise, treat as markdown
   return markdownToHtml(html)
