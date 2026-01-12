@@ -456,8 +456,10 @@ export async function fetchWordPressPostBySlug(slug: string): Promise<Article | 
 export async function fetchTagBySlug(tagSlug: string) {
   // Use direct Bluehost URL to bypass Vercel Security Checkpoint
   const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
-  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}`;
+  // Request meta fields explicitly
+  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?slug=${encodeURIComponent(tagSlug)}&_fields=id,name,slug,meta`;
 
+  console.log(`[fetchTagBySlug] Fetching: ${url}`)
   const res = await fetch(url, {
     headers: wpHeaders(),
     cache: 'no-store',
@@ -470,7 +472,9 @@ export async function fetchTagBySlug(tagSlug: string) {
   }
 
   const tags = (await res.json()) as any[];
-  return tags?.[0] ?? null;
+  const tag = tags?.[0] ?? null;
+  console.log(`[fetchTagBySlug] Tag result:`, tag ? { id: tag.id, name: tag.name, slug: tag.slug, hasMeta: !!tag.meta, meta: tag.meta } : 'null')
+  return tag;
 }
 
 // Fetch posts by tag ID (for /person pages)
