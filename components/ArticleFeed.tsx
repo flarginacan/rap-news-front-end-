@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Article, ArticlesResponse } from '@/types'
 import ArticleCard from './ArticleCard'
+import ErrorBoundary from './ErrorBoundary'
 
 interface ArticleFeedProps {
   excludeSlug?: string

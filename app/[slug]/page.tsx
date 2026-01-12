@@ -5,6 +5,7 @@ import { entityAllowlist } from '@/lib/entityAllowlist'
 import { getCanonicalSlugs, getCanonicalSlug } from '@/lib/entityCanonical'
 import Header from '@/components/Header'
 import ArticleFeed from '@/components/ArticleFeed'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -70,12 +71,26 @@ export default async function SlugPage({ params }: { params: { slug: string } })
 
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
+        // Wrap in error boundary to prevent white screens
         content = (
           <div className="min-h-screen bg-white">
             <Header />
             <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
-                <ArticleFeed tagId={tagIdForFeed} />
+                <ErrorBoundary
+                  fallback={
+                    <div className="px-4 py-8">
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                        <h2 className="text-red-800 font-bold text-xl mb-2">Error loading feed</h2>
+                        <p className="text-red-600">There was an error loading articles for {tag.name}.</p>
+                        <p className="text-red-600 text-sm mt-2">Tag IDs: {tagIds.join(', ')}</p>
+                        <p className="text-red-600 text-sm">Canonical slugs: {canonicalSlugs.join(', ')}</p>
+                      </div>
+                    </div>
+                  }
+                >
+                  <ArticleFeed tagId={tagIdForFeed} />
+                </ErrorBoundary>
               </div>
             </main>
           </div>

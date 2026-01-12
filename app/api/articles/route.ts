@@ -47,50 +47,17 @@ export async function GET(request: NextRequest) {
           const { posts } = await fetchPostsByTagId(tagIds[0], ITEMS_PER_PAGE, page)
           allPosts = posts || []
         } else {
-          // Multiple tags - try comma-separated first
+          // Multiple tags - ALWAYS use individual fetches and merge
+          // WordPress comma-separated tags may not work reliably, so we fetch each tag separately
+          console.log(`[API] Using individual tag fetches for ${tagIds.length} tags to ensure completeness`)
+          
           try {
-            const { posts } = await fetchPostsByTagId(tagIds, ITEMS_PER_PAGE, page)
-            allPosts = posts || []
-            console.log(`[API] Multi-tag query returned ${allPosts.length} posts`)
-            
-            // If we got 0 posts but we know tags have posts, fallback to individual fetches
-            if (allPosts.length === 0) {
-              console.log(`[API] Multi-tag query returned 0 posts, trying individual tag fetches...`)
-              const individualResults = await Promise.all(
-                tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 2, 1)) // Fetch more to ensure we get enough
-              )
-              
-              // Merge all posts, deduplicate by post.id
-              const postMap = new Map<number, any>()
-              for (const result of individualResults) {
-                for (const post of result.posts || []) {
-                  if (!postMap.has(post.id)) {
-                    postMap.set(post.id, post)
-                  }
-                }
-              }
-              
-              allPosts = Array.from(postMap.values())
-              // Sort by date descending
-              allPosts.sort((a, b) => {
-                const dateA = new Date(a.date).getTime()
-                const dateB = new Date(b.date).getTime()
-                return dateB - dateA
-              })
-              
-              // Paginate manually
-              const startIndex = (page - 1) * ITEMS_PER_PAGE
-              allPosts = allPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-              
-              console.log(`[API] Individual fetches returned ${allPosts.length} unique posts after pagination`)
-            }
-          } catch (error) {
-            console.error(`[API] Multi-tag query failed, using individual fetches:`, error)
-            // Fallback to individual fetches
+            // Fetch from each tag individually (fetch more than needed to ensure we get all posts)
             const individualResults = await Promise.all(
-              tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 2, 1))
+              tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 5, 1)) // Fetch 5x to ensure we get all posts
             )
             
+            // Merge all posts, deduplicate by post.id
             const postMap = new Map<number, any>()
             for (const result of individualResults) {
               for (const post of result.posts || []) {
@@ -100,15 +67,35 @@ export async function GET(request: NextRequest) {
               }
             }
             
-            allPosts = Array.from(postMap.values())
-            allPosts.sort((a, b) => {
+            const mergedPosts = Array.from(postMap.values())
+            console.log(`[API] Individual fetches returned ${mergedPosts.length} unique posts total`)
+            
+            // Sort by date descending (newest first)
+            mergedPosts.sort((a, b) => {
               const dateA = new Date(a.date).getTime()
               const dateB = new Date(b.date).getTime()
               return dateB - dateA
             })
             
+            // Paginate manually
             const startIndex = (page - 1) * ITEMS_PER_PAGE
-            allPosts = allPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+            allPosts = mergedPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+            
+            console.log(`[API] Showing ${allPosts.length} posts on page ${page} (from ${mergedPosts.length} total)`)
+            if (allPosts.length > 0) {
+              console.log(`[API] First post: ${allPosts[0].slug}, date: ${allPosts[0].date}`)
+            }
+          } catch (error) {
+            console.error(`[API] Individual tag fetches failed:`, error)
+            // Try single multi-tag query as last resort
+            try {
+              const { posts } = await fetchPostsByTagId(tagIds, ITEMS_PER_PAGE, page)
+              allPosts = posts || []
+              console.log(`[API] Fallback multi-tag query returned ${allPosts.length} posts`)
+            } catch (fallbackError) {
+              console.error(`[API] All fetch methods failed:`, fallbackError)
+              allPosts = []
+            }
           }
         }
         
