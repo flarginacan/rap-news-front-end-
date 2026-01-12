@@ -17,6 +17,7 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef(false)
+  const previousTagIdRef = useRef<number | undefined>(undefined)
 
   const fetchArticles = useCallback(async (currentCursor: string | null) => {
     if (loadingRef.current) return
@@ -77,8 +78,25 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
     }
   }, [tagId])
 
+  // Reset state when tagId changes
   useEffect(() => {
-    fetchArticles(null)
+    if (previousTagIdRef.current !== tagId) {
+      // Tag changed - reset everything
+      setArticles([])
+      setCursor(null)
+      setHasMore(true)
+      setError(null)
+      previousTagIdRef.current = tagId
+      // Fetch fresh articles
+      fetchArticles(null)
+    }
+  }, [tagId, fetchArticles])
+  
+  // Initial fetch when component mounts (if tagId hasn't changed)
+  useEffect(() => {
+    if (previousTagIdRef.current === tagId || previousTagIdRef.current === undefined) {
+      fetchArticles(null)
+    }
   }, [fetchArticles])
 
   useEffect(() => {

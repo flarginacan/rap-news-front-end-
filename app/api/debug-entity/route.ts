@@ -20,12 +20,30 @@ export async function GET(request: Request) {
     // Fetch posts if tag exists
     let postsCount = 0
     let firstPostTitle = null
+    let newestPostSlug = null
+    let newestPostDate = null
+    let firstFivePosts: Array<{ slug: string; date: string; title: string }> = []
     
     if (tag && tag.id) {
       try {
-        const result = await fetchPostsByTagId(tag.id, 20)
-        postsCount = result.posts?.length || 0
-        firstPostTitle = result.posts?.[0]?.title?.rendered?.replace(/<[^>]*>/g, '') || null
+        const result = await fetchPostsByTagId(tag.id, 20, 1)
+        const posts = result.posts || []
+        postsCount = posts.length
+        
+        if (posts.length > 0) {
+          // Get newest post (should be first due to orderby=date&order=desc)
+          const newestPost = posts[0]
+          newestPostSlug = newestPost.slug || null
+          newestPostDate = newestPost.date || null
+          firstPostTitle = newestPost.title?.rendered?.replace(/<[^>]*>/g, '') || null
+          
+          // Get first 5 posts with their slugs and dates
+          firstFivePosts = posts.slice(0, 5).map(post => ({
+            slug: post.slug || '',
+            date: post.date || '',
+            title: post.title?.rendered?.replace(/<[^>]*>/g, '') || ''
+          }))
+        }
       } catch (error) {
         console.error('[debug-entity] Error fetching posts:', error)
       }
@@ -39,6 +57,9 @@ export async function GET(request: Request) {
       count,
       postsCount,
       firstPostTitle,
+      newestPostSlug,
+      newestPostDate,
+      firstFivePosts,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {

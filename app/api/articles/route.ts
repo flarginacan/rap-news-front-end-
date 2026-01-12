@@ -28,12 +28,10 @@ export async function GET(request: NextRequest) {
       
       let articles
       if (tagId) {
-        // Fetch posts by tag (WordPress REST API doesn't support pagination for tags easily)
-        // For now, fetch all and paginate client-side, or fetch a larger batch
+        // Fetch posts by tag with proper WordPress pagination
         const { fetchPostsByTagId, convertWordPressPost } = await import('@/lib/wordpress')
-        // Fetch more than needed to support pagination
-        const fetchCount = page * ITEMS_PER_PAGE
-        const { posts } = await fetchPostsByTagId(parseInt(tagId), fetchCount)
+        // Use WordPress pagination (page parameter)
+        const { posts } = await fetchPostsByTagId(parseInt(tagId), ITEMS_PER_PAGE, page)
         // Convert WordPress posts to Article format
         const allArticles = await Promise.all(posts.map(post => convertWordPressPost(post)))
         
@@ -47,14 +45,18 @@ export async function GET(request: NextRequest) {
           return true
         })
         
-        // Paginate manually
-        const startIndex = (page - 1) * ITEMS_PER_PAGE
-        articles = uniqueArticles.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+        // DEFENSIVE: Sort by date descending (newest first) as final safety check
+        // WordPress should already return sorted, but this ensures correctness
+        articles = uniqueArticles.sort((a, b) => {
+          const dateA = new Date(a.date).getTime()
+          const dateB = new Date(b.date).getTime()
+          return dateB - dateA // Descending (newest first)
+        })
       } else {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }
       
-      console.log(`[API] Fetched ${articles.length} articles${tagId ? ` for tag ${tagId}` : ''}`)
+      console.log(`[API] Fetched ${articles.length} articles${tagId ? ` for tag ${tagId}` : ''}${tagId && articles.length > 0 ? ` (newest: ${articles[0].slug}, date: ${articles[0].date})` : ''}`)
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 

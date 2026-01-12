@@ -42,7 +42,7 @@ export default async function SlugPage({ params }: { params: { slug: string } })
       
       if (isInAllowlist) {
         console.log('[SlugPage] Tag is in allowlist, rendering entity page')
-        console.log('[SlugPage POSTS] Tag ID:', tag.id)
+        console.log('[SlugPage POSTS] Tag ID:', tag.id, 'Tag Name:', tag.name, 'Tag Slug:', tag.slug)
 
         // Render entity page using the same ArticleFeed component as homepage
         content = (
