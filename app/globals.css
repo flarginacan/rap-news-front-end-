@@ -172,6 +172,22 @@
   .getty-credit * {
     display: none !important;
   }
+
+  /* --- Getty embed: desktop-only fix (keep mobile as-is) --- */
+  @media (min-width: 1024px) {
+    /* make the embed use the full article width */
+    .getty-embed-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+
+    /* if we are using the "padding-bottom" style wrapper, tighten it up on desktop */
+    .getty-embed-wrap[style*="padding-bottom"] {
+      padding-bottom: 66.33% !important; /* 394/594 = 0.6633 */
+    }
+  }
   
   /* Legacy support for old format */
   .article-content div[style*="text-align: center"] {
