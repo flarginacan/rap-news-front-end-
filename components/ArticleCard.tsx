@@ -3,6 +3,7 @@
 import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
+import ArticleContentWithEntityNav from './ArticleContentWithEntityNav'
 
 interface ArticleCardProps {
   article: Article
@@ -406,8 +407,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     <>
       {/* Show Getty Images above title if present */}
       {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
+      {/* Fix mobile white space: mt-0 on mobile, negative margin pulls it up to header */}
       {gettyImageHtml && (
-        <div className={`mb-6 md:mb-8 ${!showLink ? '-mt-16 md:mt-0' : ''}`}>
+        <div className={`mb-6 md:mb-8 ${!showLink ? 'mt-0 md:mt-0' : ''}`}>
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
@@ -416,9 +418,10 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       )}
       
       {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
+      {/* Fix mobile white space: mt-0 on mobile to prevent double spacing */}
       {!gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
         <div className={showLink ? 'px-4 md:px-0' : 'px-0 md:px-4'}>
-          <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? '-mt-16 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
+          <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? 'mt-0 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
             <img
               src={article.image}
               alt={article.title}
@@ -446,15 +449,24 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           </Link>
         </div>
         
-        <div 
-          ref={contentRef}
-          className="article-content max-w-none"
-          style={{ 
-            lineHeight: '1.75',
-            fontSize: '18px'
-          }}
-          dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
-        />
+        {showLink ? (
+          <div 
+            ref={contentRef}
+            className="article-content max-w-none"
+            style={{ 
+              lineHeight: '1.75',
+              fontSize: '18px'
+            }}
+            dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
+          />
+        ) : (
+          <div style={{ lineHeight: '1.75', fontSize: '18px' }}>
+            <ArticleContentWithEntityNav 
+              html={contentWithoutGetty} 
+              articleSlug={article.slug}
+            />
+          </div>
+        )}
       </div>
     </>
   )

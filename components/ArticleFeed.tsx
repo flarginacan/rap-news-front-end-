@@ -3,13 +3,25 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Article, ArticlesResponse } from '@/types'
 import ArticleCard from './ArticleCard'
-import ErrorBoundary from './ErrorBoundary'
 
 interface ArticleFeedProps {
   excludeSlug?: string
   tagId?: number | string // Support single ID or comma-separated string (legacy)
   tagIds?: number[] // NEW: Array of tag IDs (preferred)
   pinSlug?: string // Article slug to pin at the top of the feed
+}
+
+/**
+ * Force pinned article to the top of the list
+ */
+function pinToTop(list: Article[], pinSlug?: string): Article[] {
+  if (!pinSlug) return list
+  const idx = list.findIndex((a) => a.slug === pinSlug)
+  if (idx <= 0) return list // Already at top or not found
+  const copy = [...list]
+  const [item] = copy.splice(idx, 1)
+  copy.unshift(item)
+  return copy
 }
 
 export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: ArticleFeedProps = {}) {
@@ -62,7 +74,9 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
         setArticles(prev => {
           const existingIds = new Set(prev.map(a => a.id))
           const newItems = filteredItems.filter(item => !existingIds.has(item.id))
-          return [...prev, ...newItems]
+          const merged = [...prev, ...newItems]
+          // Force pinned article to top after merge
+          return pinToTop(merged, pinSlug)
         })
       } else {
         // When replacing, deduplicate within the new batch
@@ -74,7 +88,9 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
           seenIds.add(item.id)
           return true
         })
-        setArticles(filteredItems)
+        // Force pinned article to top
+        const pinnedItems = pinToTop(filteredItems, pinSlug)
+        setArticles(pinnedItems)
       }
       
       setCursor(data.nextCursor)
