@@ -8,23 +8,9 @@ interface ArticleFeedProps {
   excludeSlug?: string
   tagId?: number | string // Support single ID or comma-separated string (legacy)
   tagIds?: number[] // NEW: Array of tag IDs (preferred)
-  pinSlug?: string // Article slug to pin at the top of the feed
 }
 
-/**
- * Force pinned article to the top of the list
- */
-function pinToTop(list: Article[], pinSlug?: string): Article[] {
-  if (!pinSlug) return list
-  const idx = list.findIndex((a) => a.slug === pinSlug)
-  if (idx <= 0) return list // Already at top or not found
-  const copy = [...list]
-  const [item] = copy.splice(idx, 1)
-  copy.unshift(item)
-  return copy
-}
-
-export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: ArticleFeedProps = {}) {
+export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedProps = {}) {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
@@ -51,10 +37,6 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
         // Legacy: tagId can be number or comma-separated string
         params.set('tagId', tagId.toString())
       }
-      // Add pinSlug if provided to guarantee article appears in feed
-      if (pinSlug) {
-        params.set('pinSlug', pinSlug)
-      }
       const url = `/api/articles?${params.toString()}`
       
       const response = await fetch(url)
@@ -74,9 +56,7 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
         setArticles(prev => {
           const existingIds = new Set(prev.map(a => a.id))
           const newItems = filteredItems.filter(item => !existingIds.has(item.id))
-          const merged = [...prev, ...newItems]
-          // Force pinned article to top after merge
-          return pinToTop(merged, pinSlug)
+          return [...prev, ...newItems]
         })
       } else {
         // When replacing, deduplicate within the new batch
@@ -88,9 +68,7 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
           seenIds.add(item.id)
           return true
         })
-        // Force pinned article to top
-        const pinnedItems = pinToTop(filteredItems, pinSlug)
-        setArticles(pinnedItems)
+        setArticles(filteredItems)
       }
       
       setCursor(data.nextCursor)
@@ -103,7 +81,7 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
       setLoading(false)
       loadingRef.current = false
     }
-  }, [tagId, tagIds, pinSlug])
+  }, [tagId, tagIds])
 
   // Reset state when tagIds or tagId changes
   useEffect(() => {
@@ -154,20 +132,6 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: Art
       }
     }
   }, [cursor, hasMore, loading, fetchArticles])
-
-  // Auto-scroll to pinned article when it loads
-  useEffect(() => {
-    if (pinSlug && articles.length > 0 && !loading) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        const pinnedElement = document.getElementById(`post-${pinSlug}`)
-        if (pinnedElement) {
-          pinnedElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [pinSlug, articles, loading])
 
   if (error) {
     return (
