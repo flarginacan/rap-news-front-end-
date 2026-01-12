@@ -114,42 +114,36 @@
     text-decoration: underline;
   }
   
-  /* =========================================================
-     Getty Embed Fix (remove black letterbox + full-bleed mobile)
-     Targets HTML: <div class="getty-embed-wrap"><iframe .../></div>
-     Aspect ratio is set dynamically by GettyEmbedFix component
-  ========================================================= */
-  
-  .getty-embed-wrap {
-    position: relative !important;
-    overflow: hidden !important;
-    max-width: 100% !important;
-
-    /* kill the old padding-bottom:50% + height:0 inline hack */
-    height: auto !important;
-    padding-bottom: 0 !important;
-
-    /* aspect-ratio is set dynamically by GettyEmbedFix (fallback here just in case) */
-    aspect-ratio: 16 / 9 !important;
-  }
-
-  .getty-embed-wrap iframe {
-    position: absolute !important;
-    inset: 0 !important;
+  /* --- Getty embed responsive fix --- */
+  .gie-single,
+  .gie-embed,
+  .getty-embed-fixed {
     width: 100% !important;
-    height: 100% !important;
-    border: 0 !important;
-    display: block !important;
+    max-width: 100% !important;
   }
 
-  /* Full-bleed on mobile so it hits screen edges */
+  .gie-single iframe,
+  .gie-embed iframe,
+  .getty-embed-fixed iframe,
+  iframe[src*="gettyimages.com"],
+  iframe[src*="embed.gettyimages.com"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    border: 0 !important;
+    margin: 0 auto !important;
+  }
+
+  /* Make embeds edge-to-edge on mobile even if your article container is centered */
   @media (max-width: 768px) {
-    .getty-embed-wrap {
+    .article-content .gie-single,
+    .article-content .gie-embed,
+    .article-content .getty-embed-fixed {
       width: 100vw !important;
       max-width: 100vw !important;
       margin-left: calc(50% - 50vw) !important;
       margin-right: calc(50% - 50vw) !important;
-      border-radius: 0 !important;
     }
   }
   
