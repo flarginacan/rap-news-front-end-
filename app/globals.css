@@ -166,6 +166,12 @@
   .gie-single {
     display: block !important;
   }
+
+  /* Hide extra Getty credit text under the embed (we already have credit in the image bar) */
+  .getty-credit,
+  .getty-credit * {
+    display: none !important;
+  }
   
   /* Legacy support for old format */
   .article-content div[style*="text-align: center"] {
