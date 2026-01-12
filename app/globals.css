@@ -145,7 +145,7 @@
     /* The critical part: give the wrapper height */
     height: auto !important;
     min-height: 200px;            /* safety */
-    aspect-ratio: 16 / 9;         /* default */
+    aspect-ratio: 594 / 394;      /* Getty default dimensions */
     position: relative !important;
     overflow: hidden !important;
 
