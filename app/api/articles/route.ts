@@ -51,11 +51,29 @@ export async function GET(request: NextRequest) {
         
         // DEFENSIVE: Sort by date descending (newest first) as final safety check
         // WordPress should already return sorted, but this ensures correctness
+        // Use rawDate (ISO string) for accurate sorting, fallback to date if rawDate not available
         articles = uniqueArticles.sort((a, b) => {
-          const dateA = new Date(a.date).getTime()
-          const dateB = new Date(b.date).getTime()
+          // Use rawDate if available (ISO format), otherwise try to parse date string
+          const dateAStr = a.rawDate || a.date
+          const dateBStr = b.rawDate || b.date
+          
+          const dateA = new Date(dateAStr).getTime()
+          const dateB = new Date(dateBStr).getTime()
+          
+          // If dates are invalid, put them at the end
+          if (isNaN(dateA) || isNaN(dateB)) {
+            if (isNaN(dateA) && isNaN(dateB)) return 0
+            if (isNaN(dateA)) return 1 // a goes to end
+            if (isNaN(dateB)) return -1 // b goes to end
+          }
+          
           return dateB - dateA // Descending (newest first)
         })
+        
+        // Log the first article to verify sorting
+        if (articles.length > 0) {
+          console.log(`[API] Sorted articles - newest: ${articles[0].slug}, date: ${articles[0].date}, rawDate: ${articles[0].rawDate}`)
+        }
       } else {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }

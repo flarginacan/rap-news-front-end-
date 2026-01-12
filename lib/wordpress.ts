@@ -387,13 +387,14 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   }
 
   return {
-    id: post.slug,
+    id: post.id.toString(),
     slug: post.slug,
     title: title,
     image: imageUrl,
     category: category.toUpperCase(),
     author: 'Rap News',
     date: formattedDate,
+    rawDate: post.date, // Store original ISO date for sorting
     comments: 0, // WordPress REST API doesn't include comment count by default
     content: content,
   }

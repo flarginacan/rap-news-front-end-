@@ -8,6 +8,9 @@
  */
 export const entityAllowlist: string[] = [
   'drake',
+  'drake-2',
+  'drake-3',
+  'kendrick-lamar',
   'kendrick-lamar-2',
   'future',
   'big-sean',
