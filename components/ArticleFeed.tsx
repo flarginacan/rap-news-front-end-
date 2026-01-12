@@ -9,9 +9,10 @@ interface ArticleFeedProps {
   excludeSlug?: string
   tagId?: number | string // Support single ID or comma-separated string (legacy)
   tagIds?: number[] // NEW: Array of tag IDs (preferred)
+  pinSlug?: string // Article slug to pin at the top of the feed
 }
 
-export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedProps = {}) {
+export default function ArticleFeed({ excludeSlug, tagId, tagIds, pinSlug }: ArticleFeedProps = {}) {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
@@ -37,6 +38,10 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedP
       } else if (tagId) {
         // Legacy: tagId can be number or comma-separated string
         params.set('tagId', tagId.toString())
+      }
+      // Add pinSlug if provided to guarantee article appears in feed
+      if (pinSlug) {
+        params.set('pinSlug', pinSlug)
       }
       const url = `/api/articles?${params.toString()}`
       
@@ -82,7 +87,7 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedP
       setLoading(false)
       loadingRef.current = false
     }
-  }, [tagId, tagIds])
+  }, [tagId, tagIds, pinSlug])
 
   // Reset state when tagIds or tagId changes
   useEffect(() => {
@@ -134,6 +139,20 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedP
     }
   }, [cursor, hasMore, loading, fetchArticles])
 
+  // Auto-scroll to pinned article when it loads
+  useEffect(() => {
+    if (pinSlug && articles.length > 0 && !loading) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        const pinnedElement = document.getElementById(`post-${pinSlug}`)
+        if (pinnedElement) {
+          pinnedElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [pinSlug, articles, loading])
+
   if (error) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
@@ -167,7 +186,11 @@ export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedP
         </div>
       )}
       {articles.map((article) => (
-        <ArticleCard key={article.id} article={article} />
+        <ArticleCard 
+          key={article.id} 
+          article={article} 
+          id={`post-${article.slug}`}
+        />
       ))}
       
       <div ref={sentinelRef} className="h-4" />

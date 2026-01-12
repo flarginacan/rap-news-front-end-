@@ -9,8 +9,15 @@ import ArticleFeed from '@/components/ArticleFeed'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function SlugPage({ params }: { params: { slug: string } }) {
+export default async function SlugPage({ 
+  params, 
+  searchParams 
+}: { 
+  params: { slug: string }
+  searchParams?: { from?: string }
+}) {
   const slug = params.slug
+  const from = typeof searchParams?.from === 'string' ? searchParams.from : undefined
 
   // Server-side logging at the TOP
   console.log('[SlugPage] slug=', slug)
@@ -60,13 +67,13 @@ export default async function SlugPage({ params }: { params: { slug: string } })
 
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
-        // Pass tagIds array directly
+        // Pass tagIds array directly and pinSlug if provided
         content = (
           <div className="min-h-screen bg-white">
             <Header />
             <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
-                <ArticleFeed tagIds={tagGroup.tagIds} />
+                <ArticleFeed tagIds={tagGroup.tagIds} pinSlug={from} />
               </div>
             </main>
           </div>
@@ -93,7 +100,7 @@ export default async function SlugPage({ params }: { params: { slug: string } })
               <Header />
               <main className="pt-16 md:pt-20 bg-white">
                 <div className="max-w-4xl mx-auto">
-                  <ArticleFeed tagIds={[fallbackTag.id]} />
+                  <ArticleFeed tagIds={[fallbackTag.id]} pinSlug={from} />
                 </div>
               </main>
             </div>

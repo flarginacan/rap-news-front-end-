@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const cursor = searchParams.get('cursor')
     const tagId = searchParams.get('tagId')
     const tagIdsParam = searchParams.get('tagIds') // NEW: Array of tag IDs
+    const pinSlug = searchParams.get('pinSlug') // Article slug to pin at top
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
@@ -136,6 +137,69 @@ export async function GET(request: NextRequest) {
         }
       } else {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
+      }
+      
+      // Handle pinSlug: fetch pinned post and ensure it appears first
+      if (pinSlug && USE_WORDPRESS) {
+        try {
+          const { fetchWordPressPostBySlug } = await import('@/lib/wordpress')
+          const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
+            ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
+            : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
+          
+          console.log(`[API] Pinning post with slug: ${pinSlug}`)
+          
+          // Fetch the pinned post directly by slug (as Article)
+          const pinnedPost = await fetchWordPressPostBySlug(pinSlug)
+          
+          if (pinnedPost) {
+            console.log(`[API] Pinned post found: ${pinnedPost.id}, slug: ${pinnedPost.slug}`)
+            
+            // Also fetch raw WordPress post to get tags for debugging
+            try {
+              const wpRes = await fetch(
+                `${WORDPRESS_API_URL}/posts?slug=${encodeURIComponent(pinSlug)}&_fields=id,slug,tags`,
+                { headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' }, cache: 'no-store' }
+              )
+              if (wpRes.ok) {
+                const wpPosts = await wpRes.json()
+                if (wpPosts.length > 0) {
+                  const pinnedPostTags = wpPosts[0].tags || []
+                  const intersection = pinnedPostTags.filter((tid: number) => tagIds.includes(tid))
+                  console.log(`[API] Pinned post tags: [${pinnedPostTags.join(', ')}]`)
+                  console.log(`[API] Resolved entity tagIds: [${tagIds.join(', ')}]`)
+                  console.log(`[API] Tag intersection: [${intersection.join(', ')}] (${intersection.length} matches)`)
+                  if (intersection.length === 0) {
+                    console.warn(`[API] WARNING: Pinned post has ZERO tag overlap with entity tags - tagging pipeline may be failing!`)
+                  }
+                }
+              }
+            } catch (tagFetchError) {
+              console.error(`[API] Could not fetch tags for pinned post:`, tagFetchError)
+            }
+            
+            // Check if pinned post is already in results
+            const existingIndex = articles.findIndex(a => a.id === pinnedPost.id)
+            
+            if (existingIndex === -1) {
+              // Not in results - add to front
+              console.log(`[API] Pinned post not in results, adding to front`)
+              articles.unshift(pinnedPost)
+            } else if (existingIndex > 0) {
+              // In results but not first - move to front
+              console.log(`[API] Pinned post found at index ${existingIndex}, moving to front`)
+              articles.splice(existingIndex, 1)
+              articles.unshift(pinnedPost)
+            } else {
+              console.log(`[API] Pinned post already at position 0`)
+            }
+          } else {
+            console.log(`[API] Pinned post not found for slug: ${pinSlug}`)
+          }
+        } catch (pinError) {
+          console.error(`[API] Error fetching pinned post:`, pinError)
+          // Don't fail the whole request if pinning fails
+        }
       }
       
       // Logging

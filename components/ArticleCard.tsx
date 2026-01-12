@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 interface ArticleCardProps {
   article: Article
   showLink?: boolean
+  id?: string // Optional id for scrolling to pinned articles
 }
 
 // Simple markdown to HTML converter for basic formatting
@@ -104,10 +105,6 @@ function markdownToHtml(markdown: string): string {
   return html
 }
 
-interface ArticleCardProps {
-  article: Article
-  showLink?: boolean
-}
 
 // Clean WordPress HTML content
 function extractGettyConfig(scriptContent: string): any | null {
@@ -275,7 +272,7 @@ function cleanWordPressContent(html: string): string {
   return markdownToHtml(decoded)
 }
 
-export default function ArticleCard({ article, showLink = true }: ArticleCardProps) {
+export default function ArticleCard({ article, showLink = true, id }: ArticleCardProps) {
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
@@ -467,6 +464,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
     // Person links inside content are <a> tags, and nested anchors break navigation
     return (
       <article 
+        id={id}
         className="bg-white pb-8 md:pb-12 mb-8 md:mb-16 transition-all group-hover:shadow-lg rounded-lg md:rounded-xl overflow-hidden cursor-pointer"
         onClick={() => {
           if (typeof window !== 'undefined') {
@@ -490,7 +488,7 @@ export default function ArticleCard({ article, showLink = true }: ArticleCardPro
   }
 
   return (
-    <article className="bg-white pb-8 md:pb-12 mb-8 md:mb-16">
+    <article id={id} className="bg-white pb-8 md:pb-12 mb-8 md:mb-16">
       {articleContent}
     </article>
   )

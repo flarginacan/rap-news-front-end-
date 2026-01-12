@@ -22,8 +22,9 @@ async function getCanonicalEntitySlug(slug: string): Promise<string> {
  * - Uses canonical slug to ensure all variants point to same page
  * - Points to /{canonicalSlug} (entity page), not /person/{slug}
  * - Avoids linking inside existing <a> tags.
+ * @param articleSlug Optional article slug to add ?from= query param for pinning
  */
-export async function transformHtmlWithPersonLinks(html: string, people: PersonRef[]): Promise<{ html: string; linkCount: number }> {
+export async function transformHtmlWithPersonLinks(html: string, people: PersonRef[], articleSlug?: string): Promise<{ html: string; linkCount: number }> {
   if (!html || !people?.length) return { html, linkCount: 0 };
 
   // Sort longest first so "Fetty Wap" links before "Fetty"
@@ -65,7 +66,11 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
         out = out.replace(re, (match) => {
           linkCount += 1;
           // Use canonical slug and point to entity page, not /person/
-          return `<a class="person-link" href="/${person.canonicalSlug}">${match}</a>`;
+          // Add ?from=<article-slug> if provided to guarantee article appears in feed
+          const href = articleSlug 
+            ? `/${person.canonicalSlug}?from=${encodeURIComponent(articleSlug)}`
+            : `/${person.canonicalSlug}`;
+          return `<a class="person-link" href="${href}">${match}</a>`;
         });
       }
 
