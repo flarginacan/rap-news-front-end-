@@ -3,7 +3,6 @@ import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import ArticleFeed from '@/components/ArticleFeed'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
-import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 
 // Enable ISR - pages will revalidate every 60 seconds
 export const revalidate = 60
@@ -84,15 +83,6 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     const hasPersonLinks = article.content.includes('person-link')
     const personLinkCount = (article.content.match(/class="person-link"/g) || []).length
 
-    // STEP 2: Inject ?from= parameter into entity links BEFORE rendering
-    const injectedHtml = injectFromIntoEntityLinks(article.content, article.slug)
-    
-    // Create article object with injected HTML
-    const articleWithInjectedLinks = {
-      ...article,
-      content: injectedHtml
-    }
-
     return (
       <div className="min-h-screen bg-white">
         <Header />
@@ -116,7 +106,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                 <div>Has &amp;lt;div (escaped): {article.content.includes('&lt;div') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
               </div>
             )}
-            <ArticleCard article={articleWithInjectedLinks} showLink={false} />
+            <ArticleCard article={article} showLink={false} />
             <ArticleFeed excludeSlug={slug} />
           </div>
         </main>

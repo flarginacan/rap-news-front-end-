@@ -3,6 +3,7 @@
 import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
+import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 
 interface ArticleCardProps {
   article: Article
@@ -448,15 +449,29 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           </Link>
         </div>
         
-        <div 
-          ref={contentRef}
-          className="article-content max-w-none"
-          style={{ 
-            lineHeight: '1.75',
-            fontSize: '18px'
-          }}
-          dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
-        />
+        {(() => {
+          // STEP 1: Extract body HTML (handle both string and object formats)
+          const bodyHtml = typeof contentWithoutGetty === 'string'
+            ? contentWithoutGetty
+            : (contentWithoutGetty as any)?.rendered ?? ''
+          
+          // STEP 1: Inject ?from= parameter into entity links RIGHT BEFORE final render
+          const injectedBodyHtml = !showLink 
+            ? injectFromIntoEntityLinks(bodyHtml, article.slug)
+            : bodyHtml
+          
+          return (
+            <div 
+              ref={contentRef}
+              className="article-content max-w-none"
+              style={{ 
+                lineHeight: '1.75',
+                fontSize: '18px'
+              }}
+              dangerouslySetInnerHTML={{ __html: injectedBodyHtml }}
+            />
+          )
+        })()}
       </div>
     </>
   )
