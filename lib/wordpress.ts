@@ -518,6 +518,37 @@ export async function fetchTagBySlug(tagSlug: string) {
   }
 }
 
+// Fetch tags by search query (name-based search)
+export async function fetchTagsBySearch(query: string) {
+  const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
+  const url = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/tags?search=${encodeURIComponent(query)}&per_page=100&_fields=id,name,slug,count`;
+
+  console.log(`[fetchTagsBySearch] Fetching: ${url}`)
+  
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: wpHeaders(),
+      cache: 'no-store',
+    }, 10000);
+
+    if (!res.ok) {
+      const body = await readResTextSafe(res);
+      throw new Error(`WP fetch failed ${res.status} ${url}: ${body.slice(0, 300)}`);
+    }
+
+    const text = await res.text();
+    const tags = parseJSONSafe(text, url) as any[];
+    console.log(`[fetchTagsBySearch] Found ${tags.length} tags for query: "${query}"`)
+    return tags;
+  } catch (error) {
+    console.error('[WP] fetchTagsBySearch error:', error);
+    if (error instanceof Error) {
+      throw new Error(`fetchTagsBySearch failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
 // Fetch posts by tag ID(s) - supports single ID or comma-separated list
 export async function fetchPostsByTagId(tagId: number | number[], perPage = 50, page = 1) {
   // Use direct Bluehost URL to bypass Vercel Security Checkpoint
@@ -533,7 +564,8 @@ export async function fetchPostsByTagId(tagId: number | number[], perPage = 50, 
     `&page=${page}` +
     `&_embed=1` +
     `&orderby=date` +
-    `&order=desc`;
+    `&order=desc` +
+    `&_fields=id,slug,date,title,excerpt,content,tags,featured_media`;
 
   const debug: {
     url: string;

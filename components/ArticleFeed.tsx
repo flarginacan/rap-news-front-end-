@@ -7,10 +7,11 @@ import ErrorBoundary from './ErrorBoundary'
 
 interface ArticleFeedProps {
   excludeSlug?: string
-  tagId?: number | string // Support single ID or comma-separated string
+  tagId?: number | string // Support single ID or comma-separated string (legacy)
+  tagIds?: number[] // NEW: Array of tag IDs (preferred)
 }
 
-export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {}) {
+export default function ArticleFeed({ excludeSlug, tagId, tagIds }: ArticleFeedProps = {}) {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
@@ -18,7 +19,7 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef(false)
-  const previousTagIdRef = useRef<number | string | undefined>(undefined)
+  const previousTagIdsRef = useRef<number[] | undefined>(undefined)
 
   const fetchArticles = useCallback(async (currentCursor: string | null) => {
     if (loadingRef.current) return
@@ -30,8 +31,11 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
       if (currentCursor) {
         params.set('cursor', currentCursor)
       }
-      if (tagId) {
-        // tagId can be number or comma-separated string
+      // Prefer tagIds array over tagId
+      if (tagIds && tagIds.length > 0) {
+        params.set('tagIds', tagIds.join(','))
+      } else if (tagId) {
+        // Legacy: tagId can be number or comma-separated string
         params.set('tagId', tagId.toString())
       }
       const url = `/api/articles?${params.toString()}`
@@ -78,25 +82,33 @@ export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {
       setLoading(false)
       loadingRef.current = false
     }
-  }, [tagId])
+  }, [tagId, tagIds])
 
-  // Reset state when tagId changes
+  // Reset state when tagIds or tagId changes
   useEffect(() => {
-    if (previousTagIdRef.current !== tagId) {
+    const currentTagIds = tagIds || (tagId ? [typeof tagId === 'string' ? parseInt(tagId) : tagId] : [])
+    const previousTagIds = previousTagIdsRef.current || []
+    
+    // Check if tag IDs changed
+    const tagIdsChanged = 
+      currentTagIds.length !== previousTagIds.length ||
+      currentTagIds.some((id, idx) => id !== previousTagIds[idx])
+    
+    if (tagIdsChanged) {
       // Tag changed - reset everything
       setArticles([])
       setCursor(null)
       setHasMore(true)
       setError(null)
-      previousTagIdRef.current = tagId
+      previousTagIdsRef.current = currentTagIds
       // Fetch fresh articles
       fetchArticles(null)
     }
-  }, [tagId, fetchArticles])
+  }, [tagId, tagIds, fetchArticles])
   
-  // Initial fetch when component mounts (if tagId hasn't changed)
+  // Initial fetch when component mounts
   useEffect(() => {
-    if (previousTagIdRef.current === tagId || previousTagIdRef.current === undefined) {
+    if (previousTagIdsRef.current === undefined) {
       fetchArticles(null)
     }
   }, [fetchArticles])

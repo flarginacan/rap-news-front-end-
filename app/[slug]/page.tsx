@@ -1,11 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
-import { fetchTagBySlug } from '@/lib/wordpress'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 import { entityAllowlist } from '@/lib/entityAllowlist'
-import { getCanonicalSlugs, getCanonicalSlug } from '@/lib/entityCanonical'
+import { getCanonicalSlug } from '@/lib/entityCanonical'
+import { resolveEntityTagGroup } from '@/lib/entityResolve'
 import Header from '@/components/Header'
 import ArticleFeed from '@/components/ArticleFeed'
-import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -13,8 +12,10 @@ export const revalidate = 0
 export default async function SlugPage({ params }: { params: { slug: string } }) {
   const slug = params.slug
 
-  // TEMP DEBUG: Prove route is being hit
-  console.log('[SlugPage HIT]', slug)
+  // Server-side logging at the TOP
+  console.log('[SlugPage] slug=', slug)
+  console.log('[SlugPage] NODE_ENV=', process.env.NODE_ENV)
+  console.log('[SlugPage] starting entity resolution')
 
   // A) Reserved paths check
   const reservedPaths = [
@@ -33,12 +34,13 @@ export default async function SlugPage({ params }: { params: { slug: string } })
   let content: JSX.Element | null = null
 
   // B) ENTITY FIRST (tag feed)
-  try {
-    console.log('[SlugPage] Checking for entity page (tag)...')
-    const tag = await fetchTagBySlug(slug)
-    console.log('[SlugPage TAG]', tag?.id, tag?.slug, tag?.count)
-
-    if (tag && tag.count > 0) {
+  // Safety check: only treat as entity if in allowlist
+  const isInAllowlist = entityAllowlist.includes(slug)
+  
+  if (isInAllowlist) {
+    try {
+      console.log('[SlugPage] Slug is in allowlist, resolving entity tag group...')
+      
       // Get canonical slug - if this is an alias, redirect to canonical
       const canonicalSlug = getCanonicalSlug(slug)
       if (canonicalSlug !== slug) {
@@ -46,66 +48,62 @@ export default async function SlugPage({ params }: { params: { slug: string } })
         redirect(`/${canonicalSlug}`)
       }
       
-      // Safety check: only treat as entity if in allowlist (check canonical slug)
-      const isInAllowlist = entityAllowlist.includes(canonicalSlug) || entityAllowlist.includes(slug)
+      // Resolve entity tag group by name (finds all duplicate tags automatically)
+      const tagGroup = await resolveEntityTagGroup(canonicalSlug)
       
-      if (isInAllowlist) {
-        console.log('[SlugPage] Tag is in allowlist, rendering entity page')
-        console.log('[SlugPage POSTS] Tag ID:', tag.id, 'Tag Name:', tag.name, 'Tag Slug:', tag.slug)
-
-        // Get canonical slugs for this entity (handles duplicate tags)
-        const canonicalSlugs = getCanonicalSlugs(canonicalSlug)
-        console.log('[SlugPage] Canonical slugs:', canonicalSlugs)
-        
-        // Fetch all tags for canonical slugs to get their IDs
-        const tagPromises = canonicalSlugs.map(s => fetchTagBySlug(s))
-        const allTags = await Promise.all(tagPromises)
-        const validTags = allTags.filter(t => t !== null)
-        const tagIds = validTags.map(t => t!.id)
-        
-        console.log('[SlugPage] All tag IDs for entity:', tagIds)
-        
-        // Use comma-separated tag IDs string for API (WordPress supports comma-separated in tags param)
-        // ArticleFeed will pass this to API, which will parse it
-        const tagIdForFeed = tagIds.length > 1 ? tagIds.join(',') : (tagIds[0] || tag.id)
+      if (tagGroup && tagGroup.tagIds.length > 0) {
+        console.log('[SlugPage] Entity tag group resolved:', {
+          displayName: tagGroup.displayName,
+          tagIds: tagGroup.tagIds,
+          slugs: tagGroup.slugs,
+        })
 
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
-        // Wrap in error boundary to prevent white screens
+        // Pass tagIds array directly
         content = (
           <div className="min-h-screen bg-white">
             <Header />
             <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
-                <ErrorBoundary
-                  fallback={
-                    <div className="px-4 py-8">
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                        <h2 className="text-red-800 font-bold text-xl mb-2">Error loading feed</h2>
-                        <p className="text-red-600">There was an error loading articles for {tag.name}.</p>
-                        <p className="text-red-600 text-sm mt-2">Tag IDs: {tagIds.join(', ')}</p>
-                        <p className="text-red-600 text-sm">Canonical slugs: {canonicalSlugs.join(', ')}</p>
-                      </div>
-                    </div>
-                  }
-                >
-                  <ArticleFeed tagId={tagIdForFeed} />
-                </ErrorBoundary>
+                <ArticleFeed tagIds={tagGroup.tagIds} />
               </div>
             </main>
           </div>
         )
       } else {
-        console.log('[SlugPage] Tag exists but not in allowlist, continuing to article check...')
+        console.log('[SlugPage] Could not resolve entity tag group, continuing to article check...')
+      }
+    } catch (error) {
+      console.error('[SlugPage] Error resolving entity:', error)
+      if (error instanceof Error) {
+        console.error('[SlugPage] Error message:', error.message)
+        console.error('[SlugPage] Error stack:', error.stack)
+      }
+      // DO NOT call notFound() - return fallback feed instead
+      // This prevents white screen if entity resolution fails
+      try {
+        // Fallback: try to get at least one tag and show feed
+        const { fetchTagBySlug } = await import('@/lib/wordpress')
+        const fallbackTag = await fetchTagBySlug(slug)
+        if (fallbackTag && fallbackTag.count > 0) {
+          console.log('[SlugPage] Using fallback tag:', fallbackTag.id)
+          content = (
+            <div className="min-h-screen bg-white">
+              <Header />
+              <main className="pt-16 md:pt-20 bg-white">
+                <div className="max-w-4xl mx-auto">
+                  <ArticleFeed tagIds={[fallbackTag.id]} />
+                </div>
+              </main>
+            </div>
+          )
+        }
+      } catch (fallbackError) {
+        console.error('[SlugPage] Fallback also failed:', fallbackError)
+        // Continue to article check
       }
     }
-  } catch (error) {
-    console.error('[SlugPage] Error checking tag:', error)
-    if (error instanceof Error) {
-      console.error('[SlugPage] Error message:', error.message)
-      console.error('[SlugPage] Error stack:', error.stack)
-    }
-    // Continue to article check even if tag fetch fails
   }
 
   // C) ARTICLE SECOND

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { fetchTagBySlug, fetchPostsByTagId } from '@/lib/wordpress'
-import { getCanonicalSlugs } from '@/lib/entityCanonical'
+import { fetchPostsByTagId } from '@/lib/wordpress'
+import { resolveEntityTagGroup } from '@/lib/entityResolve'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -13,24 +13,31 @@ export async function GET(request: Request) {
   try {
     console.log(`[debug-entity] Testing slug: ${slug}${expectedPostSlug ? `, expectedPostSlug: ${expectedPostSlug}` : ''}`)
     
-    // Get canonical slugs for this entity
-    const resolvedCanonicalSlugs = getCanonicalSlugs(slug)
-    console.log(`[debug-entity] Canonical slugs:`, resolvedCanonicalSlugs)
+    // Resolve entity tag group by name (finds all duplicate tags automatically)
+    const tagGroup = await resolveEntityTagGroup(slug)
     
-    // Fetch all tags for canonical slugs
-    const tagPromises = resolvedCanonicalSlugs.map(s => fetchTagBySlug(s))
-    const allTags = await Promise.all(tagPromises)
-    const validTags = allTags.filter(t => t !== null)
-    const resolvedTagIds = validTags.map(t => t!.id)
+    if (!tagGroup) {
+      return NextResponse.json({
+        entitySlugRequested: slug,
+        resolvedDisplayName: null,
+        resolvedTagIds: [],
+        resolvedSlugs: [],
+        error: 'Could not resolve entity tag group',
+        timestamp: new Date().toISOString(),
+      })
+    }
     
-    console.log(`[debug-entity] Resolved tag IDs:`, resolvedTagIds)
+    const resolvedDisplayName = tagGroup.displayName
+    const resolvedTagIds = tagGroup.tagIds
+    const resolvedSlugs = tagGroup.slugs
     
-    // Build WordPress request URL with all params
+    console.log(`[debug-entity] Resolved tag group:`, {
+      displayName: resolvedDisplayName,
+      tagIds: resolvedTagIds,
+      slugs: resolvedSlugs,
+    })
+    
     const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
-    const tagIdsParam = resolvedTagIds.join(',')
-    const wpPostsUrlUsed = resolvedTagIds.length > 0
-      ? `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts?tags=${tagIdsParam}&per_page=20&page=1&orderby=date&order=desc&_fields=id,slug,date,title,tags`
-      : null
     
     // Fetch expected post if provided
     let expectedPost: any = null
@@ -45,13 +52,15 @@ export async function GET(request: Request) {
           const expectedPosts = await expectedRes.json()
           const expectedPostData = Array.isArray(expectedPosts) ? expectedPosts[0] : expectedPosts
           if (expectedPostData) {
+            const expectedPostTags = Array.isArray(expectedPostData.tags) ? expectedPostData.tags : []
+            const isExpectedTagsInGroup = expectedPostTags.some((tagId: number) => resolvedTagIds.includes(tagId))
+            
             expectedPost = {
               expectedPostSlug: expectedPostData.slug,
               expectedPostId: expectedPostData.id,
-              expectedPostTags: Array.isArray(expectedPostData.tags) ? expectedPostData.tags : [],
-              isInEntityTagIds: Array.isArray(expectedPostData.tags) 
-                ? expectedPostData.tags.some((tagId: number) => resolvedTagIds.includes(tagId))
-                : false,
+              expectedPostTags,
+              isExpectedTagsInGroup,
+              isReturnedInFirst20: false, // Will be set below
             }
           }
         }
@@ -60,38 +69,36 @@ export async function GET(request: Request) {
       }
     }
     
-    // Fetch posts if tag exists
+    // Fetch posts using individual tag fetches (same logic as API)
     let first20PostSlugs: Array<{ id: number; slug: string; date: string; tags: number[] }> = []
     
-    if (resolvedTagIds.length > 0 && wpPostsUrlUsed) {
+    if (resolvedTagIds.length > 0) {
       try {
-        // Try multi-tag fetch first
-        const result = await fetchPostsByTagId(resolvedTagIds.length > 1 ? resolvedTagIds : resolvedTagIds[0], 20, 1)
-        let posts = result.posts || []
+        // Use individual fetches and merge (same as API)
+        const perTagFetch = 60 // Fetch enough to ensure we get newest
+        const individualResults = await Promise.all(
+          resolvedTagIds.map(tid => fetchPostsByTagId(tid, perTagFetch, 1))
+        )
         
-        // If multi-tag returned 0, try individual fetches
-        if (posts.length === 0 && resolvedTagIds.length > 1) {
-          console.log('[debug-entity] Multi-tag returned 0, trying individual fetches...')
-          const individualResults = await Promise.all(
-            resolvedTagIds.map(tid => fetchPostsByTagId(tid, 20, 1))
-          )
-          const postMap = new Map<number, any>()
-          for (const result of individualResults) {
-            for (const post of result.posts || []) {
-              if (!postMap.has(post.id)) {
-                postMap.set(post.id, post)
-              }
+        // Merge all posts, deduplicate by post.id
+        const postMap = new Map<number, any>()
+        for (const result of individualResults) {
+          for (const post of result.posts || []) {
+            if (!postMap.has(post.id)) {
+              postMap.set(post.id, post)
             }
           }
-          posts = Array.from(postMap.values())
-          posts.sort((a, b) => {
-            const dateA = new Date(a.date).getTime()
-            const dateB = new Date(b.date).getTime()
-            return dateB - dateA
-          })
         }
         
-        // Fetch full post data with tags field for each post
+        let posts = Array.from(postMap.values())
+        // Sort by date descending
+        posts.sort((a, b) => {
+          const dateA = new Date(a.date).getTime()
+          const dateB = new Date(b.date).getTime()
+          return dateB - dateA
+        })
+        
+        // Get first 20 and fetch full post data with tags
         const postsWithTags = await Promise.all(
           posts.slice(0, 20).map(async (post: any) => {
             // Fetch individual post to get tags field
@@ -136,9 +143,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       entitySlugRequested: slug,
-      resolvedCanonicalSlugs,
+      resolvedDisplayName: resolvedDisplayName,
       resolvedTagIds,
-      wpPostsUrlUsed,
+      resolvedSlugs,
       first20PostSlugs,
       expectedPost,
       timestamp: new Date().toISOString(),

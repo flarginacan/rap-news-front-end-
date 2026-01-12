@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const cursor = searchParams.get('cursor')
     const tagId = searchParams.get('tagId')
+    const tagIdsParam = searchParams.get('tagIds') // NEW: Array of tag IDs
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
@@ -27,19 +28,22 @@ export async function GET(request: NextRequest) {
       const page = cursor ? parseInt(cursor) : 1
       
       let articles
-      if (tagId) {
+      if (tagIdsParam || tagId) {
         // Fetch posts by tag with proper WordPress pagination
         const { fetchPostsByTagId, convertWordPressPost } = await import('@/lib/wordpress')
-        // Support comma-separated tag IDs (for canonical tag merging)
-        const tagIds = tagId.includes(',') 
-          ? tagId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
-          : [parseInt(tagId)]
         
-        console.log(`[API] Fetching posts for tag IDs: ${tagIds.join(',')}, page: ${page}`)
+        // Parse tag IDs - prefer tagIds array, fallback to tagId
+        let tagIds: number[] = []
+        if (tagIdsParam) {
+          tagIds = tagIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+        } else if (tagId) {
+          tagIds = tagId.includes(',') 
+            ? tagId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+            : [parseInt(tagId)]
+        }
         
-        // ROBUST MULTI-TAG FETCHING:
-        // WordPress may or may not support tags=1,2,3 in a single query
-        // Try single request first, then fallback to individual fetches if needed
+        console.log(`[API] Fetching posts for tag IDs: [${tagIds.join(', ')}], page: ${page}`)
+        
         let allPosts: any[] = []
         
         if (tagIds.length === 1) {
@@ -48,13 +52,14 @@ export async function GET(request: NextRequest) {
           allPosts = posts || []
         } else {
           // Multiple tags - ALWAYS use individual fetches and merge
-          // WordPress comma-separated tags may not work reliably, so we fetch each tag separately
-          console.log(`[API] Using individual tag fetches for ${tagIds.length} tags to ensure completeness`)
+          // Fetch enough per tag to not miss newest posts
+          const perTagFetch = ITEMS_PER_PAGE * 3 // Fetch 3x per tag to ensure we get newest
+          console.log(`[API] Using individual tag fetches for ${tagIds.length} tags (${perTagFetch} per tag)`)
           
           try {
-            // Fetch from each tag individually (fetch more than needed to ensure we get all posts)
+            // Fetch from each tag individually
             const individualResults = await Promise.all(
-              tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 5, 1)) // Fetch 5x to ensure we get all posts
+              tagIds.map(tid => fetchPostsByTagId(tid, perTagFetch, 1)) // Always fetch page 1, we'll paginate after merge
             )
             
             // Merge all posts, deduplicate by post.id
@@ -87,15 +92,7 @@ export async function GET(request: NextRequest) {
             }
           } catch (error) {
             console.error(`[API] Individual tag fetches failed:`, error)
-            // Try single multi-tag query as last resort
-            try {
-              const { posts } = await fetchPostsByTagId(tagIds, ITEMS_PER_PAGE, page)
-              allPosts = posts || []
-              console.log(`[API] Fallback multi-tag query returned ${allPosts.length} posts`)
-            } catch (fallbackError) {
-              console.error(`[API] All fetch methods failed:`, fallbackError)
-              allPosts = []
-            }
+            allPosts = []
           }
         }
         
@@ -113,7 +110,6 @@ export async function GET(request: NextRequest) {
         })
         
         // DEFENSIVE: Sort by date descending (newest first) as final safety check
-        // WordPress should already return sorted, but this ensures correctness
         // Use rawDate (ISO string) for accurate sorting, fallback to date if rawDate not available
         articles = uniqueArticles.sort((a, b) => {
           // Use rawDate if available (ISO format), otherwise try to parse date string
@@ -141,7 +137,8 @@ export async function GET(request: NextRequest) {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       }
       
-      console.log(`[API] Fetched ${articles.length} articles${tagId ? ` for tag ${tagId}` : ''}${tagId && articles.length > 0 ? ` (newest: ${articles[0].slug}, date: ${articles[0].date})` : ''}`)
+      const tagInfo = tagIdsParam ? `tagIds [${tagIds.join(', ')}]` : (tagId ? `tag ${tagId}` : '')
+      console.log(`[API] Fetched ${articles.length} articles for ${tagInfo}${articles.length > 0 ? ` (newest: ${articles[0].slug}, date: ${articles[0].date})` : ''}`)
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 
