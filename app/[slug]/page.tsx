@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { fetchTagBySlug } from '@/lib/wordpress'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 import { entityAllowlist } from '@/lib/entityAllowlist'
-import { getCanonicalSlugs } from '@/lib/entityCanonical'
+import { getCanonicalSlugs, getCanonicalSlug } from '@/lib/entityCanonical'
 import Header from '@/components/Header'
 import ArticleFeed from '@/components/ArticleFeed'
 
@@ -38,15 +38,22 @@ export default async function SlugPage({ params }: { params: { slug: string } })
     console.log('[SlugPage TAG]', tag?.id, tag?.slug, tag?.count)
 
     if (tag && tag.count > 0) {
-      // Safety check: only treat as entity if in allowlist
-      const isInAllowlist = entityAllowlist.includes(slug)
+      // Get canonical slug - if this is an alias, redirect to canonical
+      const canonicalSlug = getCanonicalSlug(slug)
+      if (canonicalSlug !== slug) {
+        console.log(`[SlugPage] Redirecting alias ${slug} to canonical ${canonicalSlug}`)
+        redirect(`/${canonicalSlug}`)
+      }
+      
+      // Safety check: only treat as entity if in allowlist (check canonical slug)
+      const isInAllowlist = entityAllowlist.includes(canonicalSlug) || entityAllowlist.includes(slug)
       
       if (isInAllowlist) {
         console.log('[SlugPage] Tag is in allowlist, rendering entity page')
         console.log('[SlugPage POSTS] Tag ID:', tag.id, 'Tag Name:', tag.name, 'Tag Slug:', tag.slug)
 
         // Get canonical slugs for this entity (handles duplicate tags)
-        const canonicalSlugs = getCanonicalSlugs(slug)
+        const canonicalSlugs = getCanonicalSlugs(canonicalSlug)
         console.log('[SlugPage] Canonical slugs:', canonicalSlugs)
         
         // Fetch all tags for canonical slugs to get their IDs

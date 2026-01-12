@@ -5,17 +5,40 @@ function escapeRegExp(s: string) {
 }
 
 /**
- * Wrap exact person name matches with an anchor to /person/{slug}.
- * - Uses absolute path (leading slash) so it never becomes /article/person/...
+ * Get canonical slug for entity links
+ * Person links should point to entity pages (/{canonicalSlug}), not /person/{slug}
+ */
+async function getCanonicalEntitySlug(slug: string): Promise<string> {
+  try {
+    const { getCanonicalSlug } = await import('./entityCanonical')
+    return getCanonicalSlug(slug)
+  } catch {
+    return slug
+  }
+}
+
+/**
+ * Wrap exact person name matches with an anchor to entity page.
+ * - Uses canonical slug to ensure all variants point to same page
+ * - Points to /{canonicalSlug} (entity page), not /person/{slug}
  * - Avoids linking inside existing <a> tags.
  */
-export function transformHtmlWithPersonLinks(html: string, people: PersonRef[]) {
+export async function transformHtmlWithPersonLinks(html: string, people: PersonRef[]): Promise<{ html: string; linkCount: number }> {
   if (!html || !people?.length) return { html, linkCount: 0 };
 
   // Sort longest first so "Fetty Wap" links before "Fetty"
   const sorted = [...people]
     .filter(p => p?.name && p?.slug)
     .sort((a, b) => b.name.length - a.name.length);
+
+  // Get canonical slugs for all people upfront
+  const { getCanonicalSlug } = await import('./entityCanonical')
+  const peopleWithCanonical = await Promise.all(
+    sorted.map(async (person) => ({
+      ...person,
+      canonicalSlug: getCanonicalSlug(person.slug),
+    }))
+  )
 
   let linkCount = 0;
 
@@ -29,7 +52,7 @@ export function transformHtmlWithPersonLinks(html: string, people: PersonRef[]) 
 
       let out = part;
 
-      for (const person of sorted) {
+      for (const person of peopleWithCanonical) {
         const name = person.name.trim();
         if (!name) continue;
 
@@ -41,7 +64,8 @@ export function transformHtmlWithPersonLinks(html: string, people: PersonRef[]) 
 
         out = out.replace(re, (match) => {
           linkCount += 1;
-          return `<a class="person-link" href="/person/${person.slug}">${match}</a>`;
+          // Use canonical slug and point to entity page, not /person/
+          return `<a class="person-link" href="/${person.canonicalSlug}">${match}</a>`;
         });
       }
 

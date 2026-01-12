@@ -2,6 +2,9 @@
  * Canonical entity tag mapping
  * Maps entity slugs to all possible tag slugs that should be considered the same entity
  * This handles duplicate tags like "drake" vs "drake-2"
+ * 
+ * IMPORTANT: The FIRST slug in each array is the canonical/primary slug.
+ * All entity links should point to the canonical slug.
  */
 export const entityCanonicalMap: Record<string, string[]> = {
   'drake': ['drake', 'drake-2', 'drake-3'],
@@ -11,6 +14,15 @@ export const entityCanonicalMap: Record<string, string[]> = {
   'kendrick-lamar-2': ['kendrick-lamar', 'kendrick-lamar-2'],
   'future': ['future'],
   'big-sean': ['big-sean'],
+}
+
+/**
+ * Get the canonical (primary) slug for an entity
+ * This is the slug that should be used in all entity links
+ */
+export function getCanonicalSlug(entitySlug: string): string {
+  const slugs = getCanonicalSlugs(entitySlug)
+  return slugs[0] // First slug is canonical
 }
 
 /**

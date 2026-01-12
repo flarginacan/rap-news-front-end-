@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchTagBySlug, fetchPostsByTagId } from '@/lib/wordpress'
+import { getCanonicalSlugs } from '@/lib/entityCanonical'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -7,74 +8,126 @@ export const revalidate = 0
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get('slug') || 'future'
-  const expectedSlug = searchParams.get('expectedSlug')
+  const expectedPostSlug = searchParams.get('expectedPostSlug')
 
   try {
-    console.log(`[debug-entity] Testing slug: ${slug}${expectedSlug ? `, expectedSlug: ${expectedSlug}` : ''}`)
+    console.log(`[debug-entity] Testing slug: ${slug}${expectedPostSlug ? `, expectedPostSlug: ${expectedPostSlug}` : ''}`)
     
-    // Fetch tag
-    const tag = await fetchTagBySlug(slug)
-    const tagFound = !!tag
-    const tagId = tag?.id || null
-    const count = tag?.count || 0
+    // Get canonical slugs for this entity
+    const resolvedCanonicalSlugs = getCanonicalSlugs(slug)
+    console.log(`[debug-entity] Canonical slugs:`, resolvedCanonicalSlugs)
+    
+    // Fetch all tags for canonical slugs
+    const tagPromises = resolvedCanonicalSlugs.map(s => fetchTagBySlug(s))
+    const allTags = await Promise.all(tagPromises)
+    const validTags = allTags.filter(t => t !== null)
+    const resolvedTagIds = validTags.map(t => t!.id)
+    
+    console.log(`[debug-entity] Resolved tag IDs:`, resolvedTagIds)
     
     // Build WordPress request URL with all params
     const WORDPRESS_BACKEND_URL = process.env.WORDPRESS_URL || 'https://tsf.dvj.mybluehost.me'
-    const wpRequestUrl = tagId
-      ? `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts?tags=${tagId}&per_page=10&page=1&orderby=date&order=desc&_fields=id,slug,date,title,tags`
+    const tagIdsParam = resolvedTagIds.join(',')
+    const wpPostsUrlUsed = resolvedTagIds.length > 0
+      ? `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts?tags=${tagIdsParam}&per_page=20&page=1&orderby=date&order=desc&_fields=id,slug,date,title,tags`
       : null
     
-    // Fetch posts if tag exists - use direct fetch to get tags field
-    let postsCount = 0
-    let firstPostTitle = null
-    let newestPostSlug = null
-    let newestPostDate = null
-    let first10: Array<{ id: number; slug: string; date: string; title: string; tagIdsUsedOnPost: number[] }> = []
-    let includesExpectedSlug = false
-    
-    if (tag && tag.id && wpRequestUrl) {
+    // Fetch expected post if provided
+    let expectedPost: any = null
+    if (expectedPostSlug) {
       try {
-        // Use fetchPostsByTagId which already handles the WordPress API call correctly
-        const { fetchPostsByTagId } = await import('@/lib/wordpress')
-        const result = await fetchPostsByTagId(tag.id, 10, 1)
-        const posts = result.posts || []
-        postsCount = posts.length
-        
-        if (posts.length > 0) {
-          // Get newest post (should be first due to orderby=date&order=desc)
-          const newestPost = posts[0]
-          newestPostSlug = newestPost.slug || null
-          newestPostDate = newestPost.date || null
-          firstPostTitle = newestPost.title?.rendered?.replace(/<[^>]*>/g, '') || null
-          
-          // Get first 10 posts with their tag IDs
-          // Note: fetchPostsByTagId returns posts with _embedded, but tags might be in _embedded['wp:term']
-          // For now, we'll fetch tags separately or note that tags field may not be directly available
-          first10 = posts.slice(0, 10).map(post => {
-            // Try to get tags from post.tags or from _embedded
-            let tagIds: number[] = []
-            if (Array.isArray(post.tags)) {
-              tagIds = post.tags
-            } else if (post._embedded?.['wp:term']) {
-              // Tags are typically in _embedded['wp:term'][1] (index 0 is categories)
-              const allTerms = post._embedded['wp:term'] || []
-              const tagTerms = allTerms.flat().filter((t: any) => t?.taxonomy === 'post_tag')
-              tagIds = tagTerms.map((t: any) => t.id)
+        const expectedPostUrl = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts?slug=${encodeURIComponent(expectedPostSlug)}&_fields=id,slug,date,title,tags`
+        const expectedRes = await fetch(expectedPostUrl, {
+          headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' },
+          cache: 'no-store',
+        })
+        if (expectedRes.ok) {
+          const expectedPosts = await expectedRes.json()
+          const expectedPostData = Array.isArray(expectedPosts) ? expectedPosts[0] : expectedPosts
+          if (expectedPostData) {
+            expectedPost = {
+              expectedPostSlug: expectedPostData.slug,
+              expectedPostId: expectedPostData.id,
+              expectedPostTags: Array.isArray(expectedPostData.tags) ? expectedPostData.tags : [],
+              isInEntityTagIds: Array.isArray(expectedPostData.tags) 
+                ? expectedPostData.tags.some((tagId: number) => resolvedTagIds.includes(tagId))
+                : false,
             }
-            
+          }
+        }
+      } catch (error) {
+        console.error('[debug-entity] Error fetching expected post:', error)
+      }
+    }
+    
+    // Fetch posts if tag exists
+    let first20PostSlugs: Array<{ id: number; slug: string; date: string; tags: number[] }> = []
+    
+    if (resolvedTagIds.length > 0 && wpPostsUrlUsed) {
+      try {
+        // Try multi-tag fetch first
+        const result = await fetchPostsByTagId(resolvedTagIds.length > 1 ? resolvedTagIds : resolvedTagIds[0], 20, 1)
+        let posts = result.posts || []
+        
+        // If multi-tag returned 0, try individual fetches
+        if (posts.length === 0 && resolvedTagIds.length > 1) {
+          console.log('[debug-entity] Multi-tag returned 0, trying individual fetches...')
+          const individualResults = await Promise.all(
+            resolvedTagIds.map(tid => fetchPostsByTagId(tid, 20, 1))
+          )
+          const postMap = new Map<number, any>()
+          for (const result of individualResults) {
+            for (const post of result.posts || []) {
+              if (!postMap.has(post.id)) {
+                postMap.set(post.id, post)
+              }
+            }
+          }
+          posts = Array.from(postMap.values())
+          posts.sort((a, b) => {
+            const dateA = new Date(a.date).getTime()
+            const dateB = new Date(b.date).getTime()
+            return dateB - dateA
+          })
+        }
+        
+        // Fetch full post data with tags field for each post
+        const postsWithTags = await Promise.all(
+          posts.slice(0, 20).map(async (post: any) => {
+            // Fetch individual post to get tags field
+            const postUrl = `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2/posts/${post.id}?_fields=id,slug,date,title,tags`
+            try {
+              const postRes = await fetch(postUrl, {
+                headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' },
+                cache: 'no-store',
+              })
+              if (postRes.ok) {
+                const postData = await postRes.json()
+                return {
+                  id: postData.id,
+                  slug: postData.slug,
+                  date: postData.date,
+                  tags: Array.isArray(postData.tags) ? postData.tags : [],
+                }
+              }
+            } catch (error) {
+              console.error(`[debug-entity] Error fetching post ${post.id}:`, error)
+            }
+            // Fallback
             return {
               id: post.id,
-              slug: post.slug || '',
-              date: post.date || '',
-              title: post.title?.rendered?.replace(/<[^>]*>/g, '') || '',
-              tagIdsUsedOnPost: tagIds
+              slug: post.slug,
+              date: post.date,
+              tags: Array.isArray(post.tags) ? post.tags : [],
             }
           })
-          
-          // Check if expected slug is included
-          if (expectedSlug) {
-            includesExpectedSlug = first10.some(p => p.slug === expectedSlug)
-          }
+        )
+        
+        first20PostSlugs = postsWithTags
+        
+        // Check if expected post is in results
+        if (expectedPost) {
+          expectedPost.isReturnedInFirst20 = first20PostSlugs.some(p => p.slug === expectedPost.expectedPostSlug)
         }
       } catch (error) {
         console.error('[debug-entity] Error fetching posts:', error)
@@ -82,27 +135,19 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      resolvedSlug: slug,
-      tag: tag ? {
-        id: tag.id,
-        name: tag.name,
-        slug: tag.slug,
-        count: tag.count
-      } : null,
-      wpRequestUrlUsedForPosts: wpRequestUrl,
-      first10,
-      newestInWpByTagId: newestPostSlug ? {
-        slug: newestPostSlug,
-        date: newestPostDate
-      } : null,
-      includesExpectedSlug: expectedSlug ? includesExpectedSlug : null,
+      entitySlugRequested: slug,
+      resolvedCanonicalSlugs,
+      resolvedTagIds,
+      wpPostsUrlUsed,
+      first20PostSlugs,
+      expectedPost,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('[debug-entity] Error:', error)
     return NextResponse.json(
       {
-        slug,
+        entitySlugRequested: slug,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         timestamp: new Date().toISOString(),

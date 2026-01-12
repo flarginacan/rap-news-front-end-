@@ -34,10 +34,86 @@ export async function GET(request: NextRequest) {
         const tagIds = tagId.includes(',') 
           ? tagId.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
           : [parseInt(tagId)]
-        // Use WordPress pagination (page parameter) - supports multiple tag IDs
-        const { posts } = await fetchPostsByTagId(tagIds.length > 1 ? tagIds : tagIds[0], ITEMS_PER_PAGE, page)
+        
+        console.log(`[API] Fetching posts for tag IDs: ${tagIds.join(',')}, page: ${page}`)
+        
+        // ROBUST MULTI-TAG FETCHING:
+        // WordPress may or may not support tags=1,2,3 in a single query
+        // Try single request first, then fallback to individual fetches if needed
+        let allPosts: any[] = []
+        
+        if (tagIds.length === 1) {
+          // Single tag - straightforward
+          const { posts } = await fetchPostsByTagId(tagIds[0], ITEMS_PER_PAGE, page)
+          allPosts = posts || []
+        } else {
+          // Multiple tags - try comma-separated first
+          try {
+            const { posts } = await fetchPostsByTagId(tagIds, ITEMS_PER_PAGE, page)
+            allPosts = posts || []
+            console.log(`[API] Multi-tag query returned ${allPosts.length} posts`)
+            
+            // If we got 0 posts but we know tags have posts, fallback to individual fetches
+            if (allPosts.length === 0) {
+              console.log(`[API] Multi-tag query returned 0 posts, trying individual tag fetches...`)
+              const individualResults = await Promise.all(
+                tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 2, 1)) // Fetch more to ensure we get enough
+              )
+              
+              // Merge all posts, deduplicate by post.id
+              const postMap = new Map<number, any>()
+              for (const result of individualResults) {
+                for (const post of result.posts || []) {
+                  if (!postMap.has(post.id)) {
+                    postMap.set(post.id, post)
+                  }
+                }
+              }
+              
+              allPosts = Array.from(postMap.values())
+              // Sort by date descending
+              allPosts.sort((a, b) => {
+                const dateA = new Date(a.date).getTime()
+                const dateB = new Date(b.date).getTime()
+                return dateB - dateA
+              })
+              
+              // Paginate manually
+              const startIndex = (page - 1) * ITEMS_PER_PAGE
+              allPosts = allPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+              
+              console.log(`[API] Individual fetches returned ${allPosts.length} unique posts after pagination`)
+            }
+          } catch (error) {
+            console.error(`[API] Multi-tag query failed, using individual fetches:`, error)
+            // Fallback to individual fetches
+            const individualResults = await Promise.all(
+              tagIds.map(tid => fetchPostsByTagId(tid, ITEMS_PER_PAGE * 2, 1))
+            )
+            
+            const postMap = new Map<number, any>()
+            for (const result of individualResults) {
+              for (const post of result.posts || []) {
+                if (!postMap.has(post.id)) {
+                  postMap.set(post.id, post)
+                }
+              }
+            }
+            
+            allPosts = Array.from(postMap.values())
+            allPosts.sort((a, b) => {
+              const dateA = new Date(a.date).getTime()
+              const dateB = new Date(b.date).getTime()
+              return dateB - dateA
+            })
+            
+            const startIndex = (page - 1) * ITEMS_PER_PAGE
+            allPosts = allPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+          }
+        }
+        
         // Convert WordPress posts to Article format
-        const allArticles = await Promise.all(posts.map(post => convertWordPressPost(post)))
+        const allArticles = await Promise.all(allPosts.map(post => convertWordPressPost(post)))
         
         // Deduplicate articles by ID (in case WordPress returns duplicates)
         const seenIds = new Set<string>()
