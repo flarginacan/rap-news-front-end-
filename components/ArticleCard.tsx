@@ -3,7 +3,7 @@
 import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
-import ArticleContentWithEntityNav from './ArticleContentWithEntityNav'
+import EntityNavInterceptor from './EntityNavInterceptor'
 
 interface ArticleCardProps {
   article: Article
@@ -460,12 +460,16 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
           />
         ) : (
-          <div style={{ lineHeight: '1.75', fontSize: '18px' }}>
-            <ArticleContentWithEntityNav 
-              html={contentWithoutGetty} 
-              articleSlug={article.slug}
+          <EntityNavInterceptor articleSlug={article.slug}>
+            <div 
+              ref={contentRef}
+              style={{ 
+                lineHeight: '1.75',
+                fontSize: '18px'
+              }}
+              dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
             />
-          </div>
+          </EntityNavInterceptor>
         )}
       </div>
     </>

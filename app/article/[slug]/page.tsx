@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import ArticleFeed from '@/components/ArticleFeed'
-import EntityLinkInterceptor from '@/components/EntityLinkInterceptor'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 
 // Enable ISR - pages will revalidate every 60 seconds
@@ -87,7 +86,6 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     return (
       <div className="min-h-screen bg-white">
         <Header />
-        <EntityLinkInterceptor />
         <main className="pt-0 md:pt-24 bg-white">
           <div className="max-w-4xl mx-auto pt-16 md:pt-0">
             {process.env.NODE_ENV === 'development' && (
