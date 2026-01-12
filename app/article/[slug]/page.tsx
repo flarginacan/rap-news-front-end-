@@ -88,23 +88,24 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         <Header />
         <main className="pt-20 md:pt-24 bg-white">
           <div className="max-w-4xl mx-auto">
-            {/* TEMPORARY DEBUG UI - Remove after verification */}
-            <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
-              <div className="font-bold mb-2">🔍 DEBUG INFO (Remove after verification):</div>
-              <div><strong>Slug:</strong> {slug}</div>
-              <div><strong>People found in content:</strong> {peopleNames.length > 0 ? peopleNames.join(', ') : 'None'}</div>
-              <div><strong>Person links in HTML:</strong> {personLinkCount}</div>
-              <div><strong>Transform applied:</strong> {hasPersonLinks ? 'YES ✅' : 'NO ❌'}</div>
-              <div><strong>Content preview (first 200 chars):</strong></div>
-              <pre className="bg-white p-2 mt-1 text-xs overflow-auto max-h-32 border">
-                {article.content.substring(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-              </pre>
-              <div className="mt-2"><strong>Debug checks:</strong></div>
-              <div>Has &lt;iframe: {article.content.includes('<iframe') ? 'YES ✅' : 'NO ❌'}</div>
-              <div>Has &lt;div class="getty-embed-wrap": {article.content.includes('<div class="getty-embed-wrap') || article.content.includes("<div class='getty-embed-wrap") ? 'YES ✅' : 'NO ❌'}</div>
-              <div>Has &amp;lt;iframe (escaped): {article.content.includes('&lt;iframe') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
-              <div>Has &amp;lt;div (escaped): {article.content.includes('&lt;div') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
-            </div>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
+                <div className="font-bold mb-2">🔍 DEBUG INFO (Development only):</div>
+                <div><strong>Slug:</strong> {slug}</div>
+                <div><strong>People found in content:</strong> {peopleNames.length > 0 ? peopleNames.join(', ') : 'None'}</div>
+                <div><strong>Person links in HTML:</strong> {personLinkCount}</div>
+                <div><strong>Transform applied:</strong> {hasPersonLinks ? 'YES ✅' : 'NO ❌'}</div>
+                <div><strong>Content preview (first 200 chars):</strong></div>
+                <pre className="bg-white p-2 mt-1 text-xs overflow-auto max-h-32 border">
+                  {article.content.substring(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                </pre>
+                <div className="mt-2"><strong>Debug checks:</strong></div>
+                <div>Has &lt;iframe: {article.content.includes('<iframe') ? 'YES ✅' : 'NO ❌'}</div>
+                <div>Has &lt;div class="getty-embed-wrap": {article.content.includes('<div class="getty-embed-wrap') || article.content.includes("<div class='getty-embed-wrap") ? 'YES ✅' : 'NO ❌'}</div>
+                <div>Has &amp;lt;iframe (escaped): {article.content.includes('&lt;iframe') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
+                <div>Has &amp;lt;div (escaped): {article.content.includes('&lt;div') ? 'YES ❌ (BAD - HTML is escaped!)' : 'NO ✅'}</div>
+              </div>
+            )}
             <ArticleCard article={article} showLink={false} />
             <ArticleFeed excludeSlug={slug} />
           </div>
