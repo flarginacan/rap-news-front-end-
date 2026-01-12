@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     const tagIdsParam = searchParams.get('tagIds') // NEW: Array of tag IDs
     const pinSlug = searchParams.get('pinSlug') // Article slug to pin at top
     const debug = searchParams.get('debug') === '1'
-    const debug = searchParams.get('debug') === '1'
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import ArticleFeed from '@/components/ArticleFeed'
+import EntityLinkInterceptor from '@/components/EntityLinkInterceptor'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 
 // Enable ISR - pages will revalidate every 60 seconds
