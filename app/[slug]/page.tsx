@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { fetchTagBySlug, fetchPostsByTagId } from '@/lib/wordpress'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 import { entityAllowlist } from '@/lib/entityAllowlist'
+import { decodeHtmlEntities, cleanTextForDisplay } from '@/lib/text'
 import Link from 'next/link'
 import Header from '@/components/Header'
 
@@ -73,32 +74,41 @@ export default async function SlugPage({ params }: { params: { slug: string } })
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '2rem' }}>
-                  {posts.map((post: any) => (
-                    <article 
-                      key={post.id} 
-                      style={{ borderBottom: '1px solid #eee', paddingBottom: '2rem' }}
-                    >
-                      <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#000' }}>
-                        <Link 
-                          href={`/article/${post.slug}`}
-                          style={{ color: '#dc2626', textDecoration: 'none' }}
-                        >
-                          {post.title?.rendered?.replace(/<[^>]*>/g, '') || post.slug}
-                        </Link>
-                      </h2>
-                      
-                      {post.excerpt && (
-                        <div 
-                          dangerouslySetInnerHTML={{ __html: post.excerpt.rendered }}
-                          style={{ color: '#666', marginTop: '0.5rem' }}
-                        />
-                      )}
-                      
-                      <p style={{ color: '#999', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                        {new Date(post.date).toLocaleDateString()}
-                      </p>
-                    </article>
-                  ))}
+                  {posts.map((post: any) => {
+                    // Clean title: decode HTML entities and strip tags
+                    const titleRaw = post.title?.rendered ?? post.title ?? ''
+                    const title = decodeHtmlEntities(titleRaw.replace(/<[^>]*>/g, '')) || post.slug
+                    
+                    // Clean excerpt: get raw, strip HTML, decode entities, remove markdown, truncate
+                    const excerptRaw = post.excerpt?.rendered ?? post.excerpt ?? post.content?.rendered ?? ''
+                    const excerpt = cleanTextForDisplay(excerptRaw, 160)
+                    
+                    return (
+                      <article 
+                        key={post.id} 
+                        style={{ borderBottom: '1px solid #eee', paddingBottom: '2rem' }}
+                      >
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#000' }}>
+                          <Link 
+                            href={`/article/${post.slug}`}
+                            style={{ color: '#dc2626', textDecoration: 'none' }}
+                          >
+                            {title}
+                          </Link>
+                        </h2>
+                        
+                        {excerpt && (
+                          <p style={{ color: '#666', marginTop: '0.5rem', lineHeight: '1.6' }}>
+                            {excerpt}
+                          </p>
+                        )}
+                        
+                        <p style={{ color: '#999', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                          {new Date(post.date).toLocaleDateString()}
+                        </p>
+                      </article>
+                    )
+                  })}
                 </div>
               )}
             </main>
@@ -139,19 +149,23 @@ export default async function SlugPage({ params }: { params: { slug: string } })
 
   // D) Render or Not Found
   if (content) {
-    // ERROR-PROOF DEBUG BANNER - ALWAYS RENDERS
+    // Debug banner only in development
+    const showDebugBanner = process.env.NODE_ENV !== 'production'
+    
     return (
-      <main style={{ padding: 24, backgroundColor: '#fff', minHeight: '100vh' }}>
-        <div style={{ 
-          border: '2px solid red', 
-          padding: 12, 
-          marginBottom: 16, 
-          fontWeight: 700,
-          backgroundColor: '#fff',
-          color: '#000'
-        }}>
-          SlugPage Rendered: {slug}
-        </div>
+      <main style={{ padding: showDebugBanner ? 24 : 0, backgroundColor: '#fff', minHeight: '100vh' }}>
+        {showDebugBanner && (
+          <div style={{ 
+            border: '2px solid red', 
+            padding: 12, 
+            marginBottom: 16, 
+            fontWeight: 700,
+            backgroundColor: '#fff',
+            color: '#000'
+          }}>
+            SlugPage Rendered: {slug}
+          </div>
+        )}
         {content}
       </main>
     )
