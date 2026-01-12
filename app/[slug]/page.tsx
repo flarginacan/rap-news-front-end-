@@ -1,10 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
-import { fetchTagBySlug, fetchPostsByTagId } from '@/lib/wordpress'
+import { fetchTagBySlug } from '@/lib/wordpress'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 import { entityAllowlist } from '@/lib/entityAllowlist'
-import { decodeHtmlEntities, cleanTextForDisplay } from '@/lib/text'
-import Link from 'next/link'
 import Header from '@/components/Header'
+import ArticleFeed from '@/components/ArticleFeed'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -43,74 +42,19 @@ export default async function SlugPage({ params }: { params: { slug: string } })
       
       if (isInAllowlist) {
         console.log('[SlugPage] Tag is in allowlist, rendering entity page')
-        
-        // Fetch posts for this tag (with error handling)
-        let posts: any[] = []
-        try {
-          const result = await fetchPostsByTagId(tag.id, 20)
-          posts = result.posts || []
-          console.log('[SlugPage POSTS]', posts?.length)
-        } catch (error) {
-          console.error('[SlugPage] Error fetching posts:', error)
-          // Continue with empty posts array - page will still render
-          posts = []
-        }
+        console.log('[SlugPage POSTS] Tag ID:', tag.id)
 
-        // Render entity page - ALWAYS render something even if posts fail
+        // Render entity page using the same ArticleFeed component as homepage
         content = (
           <div className="min-h-screen bg-white">
             <Header />
-            <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem', paddingTop: '6rem' }}>
-              <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, color: '#000' }}>
-                {tag.name}
-              </h1>
-              <p style={{ color: '#666', marginBottom: '2rem' }}>
-                {posts.length} {posts.length === 1 ? 'article' : 'articles'}
-              </p>
-              
-              {posts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
-                  <p>No articles found for this tag yet.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '2rem' }}>
-                  {posts.map((post: any) => {
-                    // Clean title: decode HTML entities and strip tags
-                    const titleRaw = post.title?.rendered ?? post.title ?? ''
-                    const title = decodeHtmlEntities(titleRaw.replace(/<[^>]*>/g, '')) || post.slug
-                    
-                    // Clean excerpt: get raw, strip HTML, decode entities, remove markdown, truncate
-                    const excerptRaw = post.excerpt?.rendered ?? post.excerpt ?? post.content?.rendered ?? ''
-                    const excerpt = cleanTextForDisplay(excerptRaw, 160)
-                    
-                    return (
-                      <article 
-                        key={post.id} 
-                        style={{ borderBottom: '1px solid #eee', paddingBottom: '2rem' }}
-                      >
-                        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#000' }}>
-                          <Link 
-                            href={`/article/${post.slug}`}
-                            style={{ color: '#dc2626', textDecoration: 'none' }}
-                          >
-                            {title}
-                          </Link>
-                        </h2>
-                        
-                        {excerpt && (
-                          <p style={{ color: '#666', marginTop: '0.5rem', lineHeight: '1.6' }}>
-                            {excerpt}
-                          </p>
-                        )}
-                        
-                        <p style={{ color: '#999', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                          {new Date(post.date).toLocaleDateString()}
-                        </p>
-                      </article>
-                    )
-                  })}
-                </div>
-              )}
+            <main className="pt-16 md:pt-20 bg-white">
+              <div className="max-w-4xl mx-auto">
+                <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 mt-4 md:mt-6 leading-tight px-4 md:px-6 lg:px-8">
+                  {tag.name}
+                </h1>
+                <ArticleFeed tagId={tag.id} />
+              </div>
             </main>
           </div>
         )

@@ -19,14 +19,31 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const cursor = searchParams.get('cursor')
+    const tagId = searchParams.get('tagId')
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
       console.log('[API] USE_WORDPRESS is true, fetching from WordPress...')
       const page = cursor ? parseInt(cursor) : 1
-      const articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
       
-      console.log(`[API] Fetched ${articles.length} articles`)
+      let articles
+      if (tagId) {
+        // Fetch posts by tag (WordPress REST API doesn't support pagination for tags easily)
+        // For now, fetch all and paginate client-side, or fetch a larger batch
+        const { fetchPostsByTagId, convertWordPressPost } = await import('@/lib/wordpress')
+        // Fetch more than needed to support pagination
+        const fetchCount = page * ITEMS_PER_PAGE
+        const { posts } = await fetchPostsByTagId(parseInt(tagId), fetchCount)
+        // Convert WordPress posts to Article format
+        const allArticles = await Promise.all(posts.map(post => convertWordPressPost(post)))
+        // Paginate manually
+        const startIndex = (page - 1) * ITEMS_PER_PAGE
+        articles = allArticles.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+      } else {
+        articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
+      }
+      
+      console.log(`[API] Fetched ${articles.length} articles${tagId ? ` for tag ${tagId}` : ''}`)
       
       const nextCursor = articles.length === ITEMS_PER_PAGE ? (page + 1).toString() : null
 

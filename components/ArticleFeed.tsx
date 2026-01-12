@@ -6,9 +6,10 @@ import ArticleCard from './ArticleCard'
 
 interface ArticleFeedProps {
   excludeSlug?: string
+  tagId?: number
 }
 
-export default function ArticleFeed({ excludeSlug }: ArticleFeedProps = {}) {
+export default function ArticleFeed({ excludeSlug, tagId }: ArticleFeedProps = {}) {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
@@ -23,9 +24,14 @@ export default function ArticleFeed({ excludeSlug }: ArticleFeedProps = {}) {
     loadingRef.current = true
     setLoading(true)
     try {
-      const url = currentCursor
-        ? `/api/articles?cursor=${currentCursor}`
-        : '/api/articles'
+      const params = new URLSearchParams()
+      if (currentCursor) {
+        params.set('cursor', currentCursor)
+      }
+      if (tagId) {
+        params.set('tagId', tagId.toString())
+      }
+      const url = `/api/articles?${params.toString()}`
       
       const response = await fetch(url)
       if (!response.ok) {
@@ -54,7 +60,7 @@ export default function ArticleFeed({ excludeSlug }: ArticleFeedProps = {}) {
       setLoading(false)
       loadingRef.current = false
     }
-  }, [])
+  }, [tagId])
 
   useEffect(() => {
     fetchArticles(null)
