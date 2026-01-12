@@ -407,7 +407,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Show Getty Images above title if present */}
       {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
       {gettyImageHtml && (
-        <div className="mb-6 md:mb-8">
+        <div className={`mb-6 md:mb-8 ${!showLink ? '-mt-16 md:mt-0' : ''}`}>
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
@@ -417,8 +417,8 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       
       {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
       {!gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
-        <div className="px-4 md:px-0">
-          <div className="relative w-full aspect-video mb-6 md:mb-10 mt-4 md:mt-6 overflow-hidden bg-gray-200 rounded-lg md:rounded-xl shadow-lg">
+        <div className={showLink ? 'px-4 md:px-0' : 'px-0 md:px-4'}>
+          <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? '-mt-16 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
             <img
               src={article.image}
               alt={article.title}
@@ -429,7 +429,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       )}
       
       <div className="px-4 md:px-6 lg:px-8">
-        <h1 className="text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 mt-4 md:mt-6 leading-tight text-balance">
+        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink ? 'mt-0' : 'mt-4'} md:mt-6 leading-tight text-balance`}>
           {article.title}
         </h1>
         
