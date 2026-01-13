@@ -18,6 +18,7 @@ export default function GlobalGettyLoader() {
     // GUARD: Clean window.gie if it exists and is not a function
     // This prevents conflicts from WordPress inline scripts or other sources
     if (typeof window !== 'undefined') {
+      // CRITICAL: Clean window.gie if it's not a function (before anything else)
       if (window.gie && typeof window.gie !== 'function') {
         console.warn('GlobalGettyLoader: window.gie exists but is not a function, cleaning it')
         try {
@@ -27,12 +28,26 @@ export default function GlobalGettyLoader() {
         }
       }
       
+      // CRITICAL: If window.gie exists as a function but q contains non-functions, clean it
+      if (window.gie && typeof window.gie === 'function' && window.gie.q && Array.isArray(window.gie.q)) {
+        const hasNonFunctions = window.gie.q.some((item: any) => typeof item !== 'function')
+        if (hasNonFunctions) {
+          console.warn('GlobalGettyLoader: window.gie.q contains non-functions, cleaning queue')
+          window.gie.q = window.gie.q.filter((item: any) => typeof item === 'function')
+        }
+      }
+      
       // Ensure window.gie is the canonical queue function
       if (!window.gie || typeof window.gie !== 'function') {
         window.gie = function(c: any) {
-          (window.gie.q = window.gie.q || []).push(c)
+          // CRITICAL: Only push functions, never objects or other values
+          if (typeof c === 'function') {
+            (window.gie.q = window.gie.q || []).push(c)
+          } else {
+            console.error('GlobalGettyLoader: Attempted to push non-function into window.gie.q:', typeof c, c)
+          }
         }
-        console.log('GlobalGettyLoader: Installed window.gie queue shim')
+        console.log('GlobalGettyLoader: Installed window.gie queue shim with function guard')
       }
     }
 

@@ -19,7 +19,7 @@ const nextConfig = {
               "img-src 'self' data: https: blob: https://embed.gettyimages.com https://embed-cdn.gettyimages.com https://www.gettyimages.com",
               "frame-src 'self' https://embed.gettyimages.com https://embed-cdn.gettyimages.com https://www.gettyimages.com",
               "child-src 'self' https://embed.gettyimages.com https://embed-cdn.gettyimages.com",
-              "connect-src 'self' https://embed.gettyimages.com https://embed-cdn.gettyimages.com https://www.gettyimages.com https://www.googletagmanager.com https://www.google-analytics.com https://*.vercel-insights.com",
+              "connect-src 'self' https://embed.gettyimages.com https://embed-cdn.gettyimages.com https://www.gettyimages.com https://*.gettyimages.com https://www.googletagmanager.com https://www.google-analytics.com https://*.vercel-insights.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
