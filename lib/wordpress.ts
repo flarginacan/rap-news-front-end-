@@ -300,14 +300,20 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
         const config = JSON.parse(jsonStr);
         
         if (config.id && config.items) {
+          // CRITICAL: Use anchor ID as source of truth, but prefer config.id if it matches
+          // If they don't match, use anchor ID (it's what's actually in the DOM)
+          const finalId = (config.id === widgetId) ? config.id : widgetId
           gettyWidgetConfig = {
-            id: config.id || widgetId,
+            id: finalId,
             sig: config.sig || '',
             items: String(config.items),
             w: config.w,
             h: config.h
           }
-          console.log(`[convertWordPressPost] Extracted Getty widget config with sig: ${gettyWidgetConfig.sig ? 'YES' : 'NO'}`)
+          if (config.id !== widgetId) {
+            console.warn(`[convertWordPressPost] Config ID (${config.id}) != Anchor ID (${widgetId}), using anchor ID`)
+          }
+          console.log(`[convertWordPressPost] Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}`)
         }
       } catch (e) {
         console.log(`[convertWordPressPost] Could not parse widget config: ${e}`)
