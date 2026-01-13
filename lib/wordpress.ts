@@ -280,13 +280,15 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string } | undefined = undefined
   
   // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
-  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>/i)
+  // Match anchor + optional script tag immediately after
+  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>(\s*<script[^>]*>[\s\S]*?<\/script>)?/i)
   if (gieSingleMatch) {
-    gettyAnchorHtml = gieSingleMatch[0]
+    gettyAnchorHtml = gieSingleMatch[0].replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').trim() // Anchor only
     const widgetId = gieSingleMatch[1]
     
-    // Try to find widget config in script tags (if oEmbed included it)
-    const scriptMatch = content.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    // Try to find widget config in script tags (check both in the match and nearby in content)
+    const scriptInMatch = gieSingleMatch[0].match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    const scriptMatch = scriptInMatch || content.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
     if (scriptMatch) {
       try {
         const configStr = `{${scriptMatch[1]}}`;
