@@ -123,11 +123,10 @@
     padding: 0 !important;
     position: relative !important;
     
-    /* Prevent 0-height wrapper */
+    /* Constrain height to actual image dimensions */
     height: auto !important;
-    min-height: 200px;            /* safety */
-    aspect-ratio: 594 / 394;      /* Getty default dimensions */
-    overflow: visible !important;
+    max-height: none !important;
+    overflow: hidden !important;  /* Clip any excess black space */
     
     /* Stacking context fix - remove overlays and force iframe on top */
     isolation: isolate !important;      /* creates a local stacking context */
@@ -148,10 +147,23 @@
     pointer-events: auto !important;
     width: 100% !important;
     height: auto !important;
-    min-height: 394px !important;
+    max-height: 500px !important;  /* Constrain max height to prevent excessive black space */
     border: 0 !important;
     display: block !important;
     background: transparent !important;
+  }
+  
+  /* Force iframe to respect aspect ratio and clip excess black space */
+  .getty-embed-wrap iframe[src*="embed.gettyimages.com"] {
+    aspect-ratio: 594 / 396 !important;  /* Standard Getty embed ratio (1.5:1) */
+    max-height: 500px !important;
+    object-fit: contain !important;
+  }
+  
+  /* Clip any content that exceeds the aspect ratio */
+  .getty-embed-wrap {
+    max-height: 500px !important;
+    overflow: hidden !important;  /* Clip excess black space */
   }
 
   @media (max-width: 640px) {
