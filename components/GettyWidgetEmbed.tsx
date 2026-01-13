@@ -44,19 +44,24 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
       }
       console.log('GettyWidgetEmbed: Installed protected queue shim (widgets.js loaded by GlobalGettyLoader)')
     } else {
-      // Even if window.gie exists, ensure it has the guard
+      // Even if window.gie exists, wrap it with a guard to prevent non-functions
       const originalGie = window.gie
-      window.gie = function(c: any) {
-        if (typeof c === 'function') {
-          (originalGie.q = originalGie.q || []).push(c)
-          originalGie(c) // Call original if it's a function
-        } else {
-          console.error('GettyWidgetEmbed: Blocked attempt to push non-function into window.gie.q:', typeof c, c)
+      // Only wrap if it doesn't already have the guard
+      if (!originalGie.toString().includes('typeof c === \'function\'')) {
+        window.gie = function(c: any) {
+          if (typeof c === 'function') {
+            return originalGie(c) // Call original with function
+          } else {
+            console.error('GettyWidgetEmbed: Blocked attempt to push non-function into window.gie.q:', typeof c, c)
+          }
         }
-      }
-      // Preserve q if it exists
-      if (originalGie.q) {
-        window.gie.q = originalGie.q.filter((item: any) => typeof item === 'function')
+        // Preserve q and widgets if they exist
+        if (originalGie.q) {
+          window.gie.q = originalGie.q.filter((item: any) => typeof item === 'function')
+        }
+        if (originalGie.widgets) {
+          window.gie.widgets = originalGie.widgets
+        }
       }
     }
 
