@@ -328,83 +328,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     }
   }
   
-  // Execute scripts after content is rendered (for old Getty Images embed widget format only)
-  useEffect(() => {
-    if (contentRef.current && contentHtml.includes('gie-single')) {
-      // Find and execute any script tags in the content
-      const scripts = contentRef.current.querySelectorAll('script')
-      scripts.forEach((script) => {
-        // Create a new script element to execute
-        const newScript = document.createElement('script')
-        if (script.src) {
-          newScript.src = script.src
-          newScript.async = script.async
-          newScript.charset = script.charset || 'utf-8'
-        } else {
-          newScript.textContent = script.textContent
-        }
-        // Remove old script and add new one to execute it
-        script.parentNode?.removeChild(script)
-        document.body.appendChild(newScript)
-      })
-      
-      // Also check if Getty Images widget loader needs to be loaded
-      if (typeof window !== 'undefined' && !(window as any).gie) {
-        const widgetScript = document.createElement('script')
-        widgetScript.src = '//embed-cdn.gettyimages.com/widgets.js'
-        widgetScript.charset = 'utf-8'
-        widgetScript.async = true
-        document.body.appendChild(widgetScript)
-      }
-    }
-  }, [contentHtml])
-  
-  // Execute scripts for Getty Images embed widget (both in extracted div and in content)
-  useEffect(() => {
-    // Check extracted Getty Images div above title
-    if (gettyImageRef.current) {
-      const scripts = gettyImageRef.current.querySelectorAll('script');
-      scripts.forEach((script) => {
-        const newScript = document.createElement('script');
-        if (script.src) {
-          newScript.src = script.src;
-          newScript.async = script.async;
-          newScript.charset = script.charset || 'utf-8';
-        } else {
-          newScript.textContent = script.textContent;
-        }
-        script.parentNode?.removeChild(script);
-        document.body.appendChild(newScript);
-      });
-    }
-    
-    // Also check content for scripts (fallback)
-    if (contentRef.current && contentHtml.includes('gie-single')) {
-      const scripts = contentRef.current.querySelectorAll('script');
-      scripts.forEach((script) => {
-        const newScript = document.createElement('script');
-        if (script.src) {
-          newScript.src = script.src;
-          newScript.async = script.async;
-          newScript.charset = script.charset || 'utf-8';
-        } else {
-          newScript.textContent = script.textContent;
-        }
-        script.parentNode?.removeChild(script);
-        document.body.appendChild(newScript);
-      });
-    }
-    
-    // Load Getty Images widget loader if needed (only for old gie-single format, not for new iframe embeds)
-    if (typeof window !== 'undefined' && !(window as any).gie && 
-        (gettyImageHtml.includes('gie-single') || contentHtml.includes('gie-single'))) {
-      const widgetScript = document.createElement('script');
-      widgetScript.src = '//embed-cdn.gettyimages.com/widgets.js';
-      widgetScript.charset = 'utf-8';
-      widgetScript.async = true;
-      document.body.appendChild(widgetScript);
-    }
-  }, [contentHtml, gettyImageHtml]);
+  // NOTE: Script execution removed - GlobalGettyLoader handles widgets.js loading
+  // All inline scripts with window.gie are removed in wordpress.ts before rendering
+  // No need to execute scripts here as they would conflict with React component management
 
   const articleContent = (
     <>

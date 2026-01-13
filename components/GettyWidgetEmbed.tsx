@@ -31,41 +31,22 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
     hasEnqueuedRef.current = false
 
     // STEP 1: Ensure window.gie is a queue function (canonical Getty pattern)
+    // NOTE: GlobalGettyLoader handles loading widgets.js globally, we just ensure the queue exists
     if (typeof window.gie !== 'function') {
-      window.gie = window.gie || function(c: any) {
+      window.gie = function(c: any) {
         (window.gie.q = window.gie.q || []).push(c)
       }
-      console.log('GettyWidgetEmbed: Installed queue shim')
+      console.log('GettyWidgetEmbed: Installed queue shim (widgets.js loaded by GlobalGettyLoader)')
     }
 
-    // STEP 2: Load widgets.js once globally in <head>
-    if (!document.getElementById('getty-widgets-script')) {
-      const s = document.createElement('script')
-      s.id = 'getty-widgets-script'
-      s.src = 'https://embed-cdn.gettyimages.com/widgets.js'
-      s.async = true
-      s.charset = 'utf-8'
-      s.onload = () => {
-        console.log('GettyWidgetEmbed: widgets.js loaded successfully')
-        console.log('GettyWidgetEmbed: window.gie =', typeof window.gie, window.gie)
-        console.log('GettyWidgetEmbed: window.gie.widgets =', window.gie?.widgets)
-        // Process any queued items
-        if (window.gie?.q && Array.isArray(window.gie.q) && window.gie.q.length > 0) {
-          console.log(`GettyWidgetEmbed: Processing ${window.gie.q.length} queued items`)
-        }
-      }
-      s.onerror = () => {
-        console.error('GettyWidgetEmbed: Failed to load widgets.js')
-      }
-      document.head.appendChild(s)
-      console.log('GettyWidgetEmbed: Loading widgets.js script in <head>')
+    // STEP 2: Verify widgets.js is loaded (it should be loaded by GlobalGettyLoader)
+    // We don't load it here - GlobalGettyLoader is responsible for that
+    if (!document.getElementById('getty-widgets-script-global')) {
+      console.warn('GettyWidgetEmbed: GlobalGettyLoader script not found, widgets.js may not be loading')
     } else {
-      console.log('GettyWidgetEmbed: widgets.js script already exists')
-      // Check if it's loaded
+      console.log('GettyWidgetEmbed: widgets.js loaded by GlobalGettyLoader')
       if (window.gie?.widgets?.load) {
-        console.log('GettyWidgetEmbed: widgets.js is already loaded and ready')
-      } else {
-        console.warn('GettyWidgetEmbed: widgets.js script tag exists but widgets.load not available yet')
+        console.log('GettyWidgetEmbed: widgets.js is ready')
       }
     }
 

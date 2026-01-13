@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import GettyResponsiveFix from './components/GettyResponsiveFix'
-import GettyWidgetsLoader from './components/GettyWidgetsLoader'
+import GlobalGettyLoader from './components/GlobalGettyLoader'
 
 export const metadata: Metadata = {
   title: 'RAP NEWS',
@@ -21,11 +21,11 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* FRONTEND_DEPLOY_MARKER: PERSON_LINKS_V1 */}
+        <GlobalGettyLoader />
       </head>
       <body className="bg-white">
         {children}
         <GettyResponsiveFix />
-        <GettyWidgetsLoader />
         <Analytics />
       </body>
     </html>
