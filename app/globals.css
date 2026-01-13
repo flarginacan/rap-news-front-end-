@@ -116,9 +116,11 @@
   
   /* --- Getty embed styling --- */
   .getty-embed-wrap {
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
   }
 
   .getty-embed-wrap iframe {
@@ -140,24 +142,25 @@
   .getty-embed-wrap {
     width: 100% !important;
     max-width: 100% !important;
-    margin: 32px auto 16px !important;
+    margin: 0 !important;
+    margin-bottom: 16px !important;
 
     /* The critical part: give the wrapper height */
     height: auto !important;
     min-height: 200px;            /* safety */
     aspect-ratio: 594 / 394;      /* Getty default dimensions */
     position: relative !important;
-    overflow: hidden !important;
+    overflow: visible !important;
 
     /* If Getty left height:0 / padding hacks, neutralize them */
     padding: 0 !important;
   }
 
   .getty-embed-wrap iframe {
-    position: absolute !important;
-    inset: 0 !important;
+    position: relative !important;
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    min-height: 394px !important;
     border: 0 !important;
     display: block !important;
   }

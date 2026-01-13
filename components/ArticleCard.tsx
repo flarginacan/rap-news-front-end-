@@ -411,7 +411,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyWidget ? (
-        <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
+        <div className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} style={{ marginTop: 0 }}>
           <GettyWidgetEmbed 
             widgetId={article.gettyWidget.widgetId}
             sig={article.gettyWidget.sig}
@@ -444,7 +444,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       )}
       
       <div className="px-4 md:px-6 lg:px-8">
-        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink ? 'mt-0' : 'mt-4'} md:mt-6 leading-tight text-balance`}>
+        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink && article.gettyWidget ? 'mt-0' : !showLink ? 'mt-0' : 'mt-4'} md:mt-6 leading-tight text-balance`}>
           {article.title}
         </h1>
         

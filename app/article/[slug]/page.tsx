@@ -84,10 +84,10 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     const personLinkCount = (article.content.match(/class="person-link"/g) || []).length
 
     return (
-      <div className="min-h-screen bg-white">
+      <div className="bg-white">
         <Header />
-        <main className="pt-0 md:pt-24 bg-white">
-          <div className="max-w-4xl mx-auto pt-16 md:pt-0">
+        <main className="pt-16 md:pt-24 bg-white">
+          <div className="max-w-4xl mx-auto">
             {process.env.NODE_ENV === 'development' && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
                 <div className="font-bold mb-2">🔍 DEBUG INFO (Development only):</div>

@@ -197,7 +197,9 @@ export default function GettyWidgetEmbed({
         position: 'relative', 
         width: '100%', 
         maxWidth: '100%', 
-        margin: '32px 0 16px 0' 
+        margin: '0 0 16px 0',
+        outline: '4px solid red',
+        background: 'rgba(255,0,0,0.05)'
       }} 
       ref={containerRef}
     >
