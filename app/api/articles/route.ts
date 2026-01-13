@@ -21,12 +21,32 @@ export async function GET(request: NextRequest) {
     const cursor = searchParams.get('cursor')
     const tagId = searchParams.get('tagId')
     const tagIdsParam = searchParams.get('tagIds') // NEW: Array of tag IDs
+    const pinSlug = searchParams.get('pinSlug') // Article slug to pin at top
     const debug = searchParams.get('debug') === '1'
 
     if (USE_WORDPRESS) {
       // Fetch from WordPress
       console.log('[API] USE_WORDPRESS is true, fetching from WordPress...')
       const page = cursor ? parseInt(cursor) : 1
+      
+      // FIX B: Fetch pinned post FIRST (before tag fetching) if pinSlug exists
+      // This ensures pinning works independently of tag overlap
+      let pinnedPost: any = null
+      if (pinSlug && USE_WORDPRESS) {
+        try {
+          const { fetchWordPressPostBySlug } = await import('@/lib/wordpress')
+          console.log(`[API] Fetching pinned post with slug: ${pinSlug} (before tag fetch)`)
+          pinnedPost = await fetchWordPressPostBySlug(pinSlug)
+          if (pinnedPost) {
+            console.log(`[API] Pinned post found: ${pinnedPost.id}, slug: ${pinnedPost.slug}`)
+          } else {
+            console.log(`[API] Pinned post not found for slug: ${pinSlug}`)
+          }
+        } catch (pinError) {
+          console.error(`[API] Error fetching pinned post:`, pinError)
+          // Continue without pinned post
+        }
+      }
       
       let articles
       let tagIds: number[] = [] // Declare outside if block for logging
@@ -49,19 +69,19 @@ export async function GET(request: NextRequest) {
         let allPosts: any[] = []
         
         if (tagIds.length === 1) {
-          // Single tag - fetch ALL posts (no pagination limit) to ensure proper sorting
-          const { posts } = await fetchPostsByTagId(tagIds[0], 100, 1) // Fetch up to 100 posts
+          // Single tag - straightforward
+          const { posts } = await fetchPostsByTagId(tagIds[0], ITEMS_PER_PAGE, page)
           allPosts = posts || []
         } else {
           // Multiple tags - ALWAYS use individual fetches and merge
-          // Fetch enough per tag to get all posts (no pagination before sorting)
-          const perTagFetch = 100 // Fetch up to 100 per tag to ensure we get all posts
+          // Fetch enough per tag to not miss newest posts
+          const perTagFetch = ITEMS_PER_PAGE * 3 // Fetch 3x per tag to ensure we get newest
           console.log(`[API] Using individual tag fetches for ${tagIds.length} tags (${perTagFetch} per tag)`)
           
           try {
             // Fetch from each tag individually
             const individualResults = await Promise.all(
-              tagIds.map(tid => fetchPostsByTagId(tid, perTagFetch, 1)) // Always fetch page 1, we'll sort and paginate after merge
+              tagIds.map(tid => fetchPostsByTagId(tid, perTagFetch, 1)) // Always fetch page 1, we'll paginate after merge
             )
             
             // Merge all posts, deduplicate by post.id
@@ -74,8 +94,24 @@ export async function GET(request: NextRequest) {
               }
             }
             
-            allPosts = Array.from(postMap.values())
-            console.log(`[API] Individual fetches returned ${allPosts.length} unique posts total`)
+            const mergedPosts = Array.from(postMap.values())
+            console.log(`[API] Individual fetches returned ${mergedPosts.length} unique posts total`)
+            
+            // Sort by date descending (newest first)
+            mergedPosts.sort((a, b) => {
+              const dateA = new Date(a.date).getTime()
+              const dateB = new Date(b.date).getTime()
+              return dateB - dateA
+            })
+            
+            // Paginate manually
+            const startIndex = (page - 1) * ITEMS_PER_PAGE
+            allPosts = mergedPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+            
+            console.log(`[API] Showing ${allPosts.length} posts on page ${page} (from ${mergedPosts.length} total)`)
+            if (allPosts.length > 0) {
+              console.log(`[API] First post: ${allPosts[0].slug}, date: ${allPosts[0].date}`)
+            }
           } catch (error) {
             console.error(`[API] Individual tag fetches failed:`, error)
             allPosts = []
@@ -95,9 +131,9 @@ export async function GET(request: NextRequest) {
           return true
         })
         
-        // CRITICAL: Sort ALL articles by rawDate DESC BEFORE pagination
-        // This guarantees the newest article is always at index 0
-        const sortedArticles = uniqueArticles.sort((a, b) => {
+        // DEFENSIVE: Sort by date descending (newest first) as final safety check
+        // Use rawDate (ISO string) for accurate sorting, fallback to date if rawDate not available
+        articles = uniqueArticles.sort((a, b) => {
           // Use rawDate if available (ISO format), otherwise try to parse date string
           const dateAStr = a.rawDate || a.date
           const dateBStr = b.rawDate || b.date
@@ -115,24 +151,86 @@ export async function GET(request: NextRequest) {
           return dateB - dateA // Descending (newest first)
         })
         
-        // VERIFICATION: Log first 5 article slugs AFTER sorting (before pagination)
-        if (sortedArticles.length > 0) {
-          const first5 = sortedArticles.slice(0, 5).map(a => ({
-            slug: a.slug,
-            rawDate: a.rawDate || a.date
-          }))
-          console.log(`[API] ✅ Sorted ${sortedArticles.length} articles by rawDate DESC`)
-          console.log(`[API] ✅ First 5 after sort (newest first):`, first5)
-          console.log(`[API] ✅ Newest article at index 0: ${first5[0]?.slug} (date: ${first5[0]?.rawDate})`)
+        // Log the first article to verify sorting
+        if (articles.length > 0) {
+          console.log(`[API] Sorted articles - newest: ${articles[0].slug}, date: ${articles[0].date}, rawDate: ${articles[0].rawDate}`)
         }
-        
-        // NOW paginate after sorting
-        const startIndex = (page - 1) * ITEMS_PER_PAGE
-        articles = sortedArticles.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-        
-        console.log(`[API] Showing ${articles.length} posts on page ${page} (from ${sortedArticles.length} total)`)
       } else {
         articles = await fetchWordPressPosts(page, ITEMS_PER_PAGE)
+      }
+      
+      // FIX B: Handle pinSlug - ensure pinned post appears first BEFORE pagination
+      // This works independently of tag overlap - always pins if pinSlug is provided
+      let pinnedInfo: {
+        found: boolean
+        wpSlug: string | null
+        wpId: number | null
+        wasInserted: boolean
+        error: string | null
+      } = {
+        found: false,
+        wpSlug: null,
+        wpId: null,
+        wasInserted: false,
+        error: null
+      }
+
+      if (pinnedPost) {
+        pinnedInfo.found = true
+        pinnedInfo.wpSlug = pinnedPost.slug
+        pinnedInfo.wpId = parseInt(pinnedPost.id)
+        
+        // Also fetch raw WordPress post to get tags for debugging
+        if (tagIds.length > 0) {
+          try {
+            const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
+              ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
+              : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
+            const wpRes = await fetch(
+              `${WORDPRESS_API_URL}/posts?slug=${encodeURIComponent(pinSlug!)}&_fields=id,slug,tags`,
+              { headers: { Accept: 'application/json', 'User-Agent': 'rapnews-server-fetch/1.0' }, cache: 'no-store' }
+            )
+            if (wpRes.ok) {
+              const wpPosts = await wpRes.json()
+              if (wpPosts.length > 0) {
+                const pinnedPostTags = wpPosts[0].tags || []
+                const intersection = pinnedPostTags.filter((tid: number) => tagIds.includes(tid))
+                console.log(`[API] Pinned post tags: [${pinnedPostTags.join(', ')}]`)
+                console.log(`[API] Resolved entity tagIds: [${tagIds.join(', ')}]`)
+                console.log(`[API] Tag intersection: [${intersection.join(', ')}] (${intersection.length} matches)`)
+                if (intersection.length === 0) {
+                  console.warn(`[API] WARNING: Pinned post has ZERO tag overlap with entity tags - but will still be pinned!`)
+                }
+              }
+            } else {
+              pinnedInfo.error = `WP fetch failed: ${wpRes.status} ${wpRes.statusText}`
+            }
+          } catch (tagFetchError) {
+            const errorMsg = tagFetchError instanceof Error ? tagFetchError.message : String(tagFetchError)
+            console.error(`[API] Could not fetch tags for pinned post:`, tagFetchError)
+            pinnedInfo.error = `Tag fetch error: ${errorMsg}`
+          }
+        }
+        
+        // CRITICAL: Pin BEFORE pagination - always unshift to front, dedupe by id
+        const existingIndex = articles.findIndex(a => a.id === pinnedPost.id)
+        
+        if (existingIndex === -1) {
+          // Not in results - add to front (works even if tags don't overlap)
+          console.log(`[API] Pinned post not in tag results, adding to front (independent of tag overlap)`)
+          articles.unshift(pinnedPost)
+          pinnedInfo.wasInserted = true
+        } else if (existingIndex > 0) {
+          // In results but not first - move to front
+          console.log(`[API] Pinned post found at index ${existingIndex}, moving to front`)
+          articles.splice(existingIndex, 1)
+          articles.unshift(pinnedPost)
+          pinnedInfo.wasInserted = true
+        } else {
+          console.log(`[API] Pinned post already at position 0`)
+        }
+      } else if (pinSlug) {
+        pinnedInfo.error = `Post not found for slug: ${pinSlug}`
       }
       
       // Logging
@@ -160,8 +258,10 @@ export async function GET(request: NextRequest) {
           received: {
             tagId: tagId || null,
             tagIds: tagIds.length > 0 ? tagIds : null,
+            pinSlug: pinSlug || null,
             page: page
           },
+          pinned: pinnedInfo,
           first5: first5,
           items: articles,
           nextCursor,

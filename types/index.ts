@@ -9,6 +9,13 @@ export interface Article {
   comments: number;
   content: string;
   slug: string;
+  gettyWidget?: {
+    widgetId: string;
+    sig: string;
+    assetId: string;
+    w: number;
+    h: number;
+  };
 }
 
 export interface ArticlesResponse {

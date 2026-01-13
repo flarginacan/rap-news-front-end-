@@ -275,6 +275,45 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
   
+  // Extract Getty widget data from HTML (for React component)
+  let gettyWidget: { widgetId: string; sig: string; assetId: string; w: number; h: number } | undefined = undefined
+  
+  // Look for gie-single anchor with id and script with gie.widgets.load
+  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>\s*(?:<script[^>]*>([\s\S]*?)<\/script>)?/i)
+  if (gieSingleMatch) {
+    const widgetId = gieSingleMatch[1]
+    const scriptContent = gieSingleMatch[2] || ''
+    
+    // Extract config from script
+    const loadMatch = scriptContent.match(/gie\.widgets\.load\s*\(\s*\{([^}]+)\}\s*\)/)
+    if (loadMatch) {
+      try {
+        // Parse the config object
+        const configStr = `{${loadMatch[1]}}`
+        // Replace single quotes with double quotes and add quotes to keys
+        const jsonStr = configStr
+          .replace(/'/g, '"')
+          .replace(/(\w+):/g, '"$1":')
+          .replace(/:\s*"(\d+)px"/g, ':$1') // Remove px and quotes from numbers
+          .replace(/:\s*"(\d+)"/g, ':$1') // Remove quotes from numeric strings
+        const config = JSON.parse(jsonStr)
+        
+        if (config.id && config.items) {
+          gettyWidget = {
+            widgetId: config.id || widgetId,
+            sig: config.sig || '',
+            assetId: String(config.items),
+            w: parseInt(String(config.w || '594').replace('px', ''), 10) || 594,
+            h: parseInt(String(config.h || '396').replace('px', ''), 10) || 396
+          }
+          console.log(`[convertWordPressPost] Extracted Getty widget data:`, gettyWidget)
+        }
+      } catch (e) {
+        console.log(`[convertWordPressPost] Failed to parse Getty widget config:`, e)
+      }
+    }
+  }
+
   // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
   const gettyImageDivs: string[] = []
   // Match the entire Getty Images div structure including:
@@ -397,6 +436,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     rawDate: post.date, // Store original ISO date for sorting
     comments: 0, // WordPress REST API doesn't include comment count by default
     content: content,
+    gettyWidget: gettyWidget,
   }
 }
 

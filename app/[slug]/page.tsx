@@ -14,9 +14,10 @@ export default async function SlugPage({
   searchParams 
 }: { 
   params: { slug: string }
-  searchParams?: { debug?: string }
+  searchParams?: { from?: string; debug?: string }
 }) {
   const slug = params.slug
+  const from = typeof searchParams?.from === 'string' ? searchParams.from : undefined
   const debug = searchParams?.debug === '1'
 
   // Server-side logging at the TOP
@@ -49,10 +50,11 @@ export default async function SlugPage({
       console.log('[SlugPage] Slug is in allowlist, resolving entity tag group...')
       
       // Get canonical slug - if this is an alias, redirect to canonical
+      // IMPORTANT: Preserve query string (especially ?from=) when redirecting
       const canonicalSlug = getCanonicalSlug(slug)
       if (canonicalSlug !== slug) {
         console.log(`[SlugPage] Redirecting alias ${slug} to canonical ${canonicalSlug}`)
-        const redirectUrl = `/${canonicalSlug}${debug ? '?debug=1' : ''}`
+        const redirectUrl = `/${canonicalSlug}${from ? `?from=${encodeURIComponent(from)}` : ''}${debug ? (from ? '&debug=1' : '?debug=1') : ''}`
         redirect(redirectUrl)
       }
       
@@ -67,11 +69,11 @@ export default async function SlugPage({
         })
 
         // Build API URL for debug display
-        const apiUrl = `/api/articles?tagIds=${tagGroup.tagIds.join(',')}${debug ? '&debug=1' : ''}`
+        const apiUrl = `/api/articles?tagIds=${tagGroup.tagIds.join(',')}${from ? `&pinSlug=${encodeURIComponent(from)}` : ''}${debug ? '&debug=1' : ''}`
 
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
-        // Pass tagIds array directly - articles sorted by rawDate DESC (newest first)
+        // Pass tagIds array directly and pinSlug if provided
         content = (
           <div className="min-h-screen bg-white">
             <Header />
@@ -89,15 +91,12 @@ export default async function SlugPage({
                   }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>🔍 DEBUG MODE</div>
                     <div><strong>entitySlug:</strong> {canonicalSlug}</div>
+                    <div><strong>from:</strong> {from || '(none)'}</div>
                     <div><strong>resolvedTagIds:</strong> [{tagGroup.tagIds.join(', ')}] (length: {tagGroup.tagIds.length})</div>
                     <div><strong>API URL:</strong> {apiUrl}</div>
-                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d97706' }}>
-                      <div><strong>Note:</strong> Articles are sorted by rawDate DESC (newest first) BEFORE pagination</div>
-                      <div><strong>Check API response:</strong> first5 array shows first 5 article slugs after sort</div>
-                    </div>
                   </div>
                 )}
-                <ArticleFeed tagIds={tagGroup.tagIds} />
+                <ArticleFeed tagIds={tagGroup.tagIds} pinSlug={from} />
               </div>
             </main>
           </div>
@@ -124,7 +123,7 @@ export default async function SlugPage({
               <Header />
               <main className="pt-16 md:pt-20 bg-white">
                 <div className="max-w-4xl mx-auto">
-                  <ArticleFeed tagIds={[fallbackTag.id]} />
+                  <ArticleFeed tagIds={[fallbackTag.id]} pinSlug={from} />
                 </div>
               </main>
             </div>
