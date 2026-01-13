@@ -389,6 +389,8 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // Match new format: getty-embed-wrap + credit div
   content = content.replace(/<div[^>]*class=["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)?/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
   // Match old format: divs with gettyimages.com or gie-single, plus following script tags
+  // Remove all gie-single anchors from content (we handle them via React component)
+  content = content.replace(/<a[^>]*class=["'][^"']*\bgie-single\b[^"']*["'][^>]*>[\s\S]*?<\/a>/gi, '')
   content = content.replace(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
   
   // CRITICAL: Remove ALL inline scripts that contain window.gie or gie.widgets
