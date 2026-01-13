@@ -9,13 +9,7 @@ export interface Article {
   comments: number;
   content: string;
   slug: string;
-  gettyWidget?: {
-    widgetId: string;
-    sig: string;
-    assetId: string;
-    w: number;
-    h: number;
-  };
+  gettyAnchorHtml?: string; // Only the anchor element HTML (no scripts)
 }
 
 export interface ArticlesResponse {
