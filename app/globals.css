@@ -119,52 +119,30 @@
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
+    margin-bottom: 16px !important;
     padding: 0 !important;
     position: relative !important;
-  }
-
-  .getty-embed-wrap iframe {
-    width: 100% !important;
-    display: block;
-    border: 0;
-  }
-
-  @media (max-width: 640px) {
-    .getty-embed-wrap {
-      max-width: none;
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-    }
-  }
-
-  /* --- Getty embed hard-fix: prevent 0-height wrapper --- */
-  .getty-embed-wrap {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    margin-bottom: 16px !important;
-
-    /* The critical part: give the wrapper height */
+    
+    /* Prevent 0-height wrapper */
     height: auto !important;
     min-height: 200px;            /* safety */
     aspect-ratio: 594 / 394;      /* Getty default dimensions */
-    position: relative !important;
     overflow: visible !important;
+    
+    /* Stacking context fix - remove overlays and force iframe on top */
     isolation: isolate !important;      /* creates a local stacking context */
     background: transparent !important;
-
-    /* If Getty left height:0 / padding hacks, neutralize them */
-    padding: 0 !important;
   }
 
+  /* Remove any pseudo-elements that may overlay the iframe */
   .getty-embed-wrap::before,
   .getty-embed-wrap::after {
     content: none !important;
     display: none !important;
   }
 
-  .getty-embed-wrap iframe {
+  .getty-embed-wrap iframe,
+  iframe[src*="embed.gettyimages.com"] {
     position: relative !important;
     z-index: 999999 !important;
     pointer-events: auto !important;
@@ -174,6 +152,15 @@
     border: 0 !important;
     display: block !important;
     background: transparent !important;
+  }
+
+  @media (max-width: 640px) {
+    .getty-embed-wrap {
+      max-width: none;
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+    }
   }
 
   /* Some Getty embeds come as .gie-single; don't let them collapse either */
