@@ -115,14 +115,15 @@ export async function GET(request: NextRequest) {
           return dateB - dateA // Descending (newest first)
         })
         
-        // DEBUG: Log first 3 article slugs after sort
+        // VERIFICATION: Log first 5 article slugs AFTER sorting (before pagination)
         if (sortedArticles.length > 0) {
-          const first3 = sortedArticles.slice(0, 3).map(a => ({
+          const first5 = sortedArticles.slice(0, 5).map(a => ({
             slug: a.slug,
             rawDate: a.rawDate || a.date
           }))
-          console.log(`[API] Sorted ${sortedArticles.length} articles by rawDate DESC`)
-          console.log(`[API] First 3 after sort:`, first3)
+          console.log(`[API] ✅ Sorted ${sortedArticles.length} articles by rawDate DESC`)
+          console.log(`[API] ✅ First 5 after sort (newest first):`, first5)
+          console.log(`[API] ✅ Newest article at index 0: ${first5[0]?.slug} (date: ${first5[0]?.rawDate})`)
         }
         
         // NOW paginate after sorting
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
 
       // If debug mode, return debug info
       if (debug) {
-        const first3 = articles.slice(0, 3).map(a => ({
+        const first5 = articles.slice(0, 5).map(a => ({
           slug: a.slug,
           rawDate: a.rawDate || a.date
         }))
@@ -161,7 +162,7 @@ export async function GET(request: NextRequest) {
             tagIds: tagIds.length > 0 ? tagIds : null,
             page: page
           },
-          first3: first3,
+          first5: first5,
           items: articles,
           nextCursor,
         }, { headers })

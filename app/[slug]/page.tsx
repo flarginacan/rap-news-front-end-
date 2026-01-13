@@ -71,7 +71,7 @@ export default async function SlugPage({
 
         // Render entity page using the same ArticleFeed component as homepage
         // NO rapper name header - just the feed
-        // Pass tagIds array directly (no pinSlug - sorting by date handles it)
+        // Pass tagIds array directly - articles sorted by rawDate DESC (newest first)
         content = (
           <div className="min-h-screen bg-white">
             <Header />
@@ -92,8 +92,8 @@ export default async function SlugPage({
                     <div><strong>resolvedTagIds:</strong> [{tagGroup.tagIds.join(', ')}] (length: {tagGroup.tagIds.length})</div>
                     <div><strong>API URL:</strong> {apiUrl}</div>
                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #d97706' }}>
-                      <div><strong>Note:</strong> Articles are sorted by rawDate DESC (newest first)</div>
-                      <div><strong>Check API response:</strong> first3 array shows first 3 article slugs after sort</div>
+                      <div><strong>Note:</strong> Articles are sorted by rawDate DESC (newest first) BEFORE pagination</div>
+                      <div><strong>Check API response:</strong> first5 array shows first 5 article slugs after sort</div>
                     </div>
                   </div>
                 )}
