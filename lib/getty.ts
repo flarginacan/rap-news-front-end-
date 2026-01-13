@@ -15,6 +15,14 @@ export function ensureGettyScript(): Promise<void> {
   if (window.__gettyScriptPromise) return window.__gettyScriptPromise;
 
   window.__gettyScriptPromise = new Promise<void>((resolve, reject) => {
+    // CRITICAL: Set up queue function BEFORE loading widgets.js
+    // Getty's widgets.js expects window.gie to be a queue function when it loads
+    if (!window.gie || typeof window.gie !== 'function') {
+      window.gie = function(c: any) {
+        (window.gie.q = window.gie.q || []).push(c);
+      };
+    }
+
     // Wait for widgets.load to be ready
     const waitForReady = () => {
       const start = Date.now();
