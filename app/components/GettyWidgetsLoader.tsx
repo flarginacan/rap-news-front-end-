@@ -4,12 +4,15 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
 function loadGettyWidgets() {
-  // Ensure window.gie exists
+  // Ensure window.gie exists and is a function (never an object!)
   if (typeof window === 'undefined') return;
   
-  (window as any).gie = (window as any).gie || function(c: any) {
-    ((window as any).gie.q = (window as any).gie.q || []).push(c);
-  };
+  // CRITICAL: window.gie MUST be a function, never an object
+  if (typeof (window as any).gie !== 'function') {
+    (window as any).gie = function(c: any) {
+      ((window as any).gie.q = ((window as any).gie.q || [])).push(c);
+    };
+  }
 
   // Find all uninitialized Getty embeds
   const elements = document.querySelectorAll<HTMLElement>('.getty-gie[data-gie]:not([data-gie-initialized])');
