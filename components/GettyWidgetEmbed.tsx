@@ -27,9 +27,22 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
           return;
         }
 
-        // Anchor exists, now call widgets.load()
+        // Verify anchor has required attributes
+        if (!anchor.id || !anchor.getAttribute('data-items')) {
+          console.warn("[Getty] Anchor missing required attributes, retrying...");
+          requestAnimationFrame(checkAndLoad);
+          return;
+        }
+
+        // Anchor exists and has required attributes, now call widgets.load()
+        // Use try-catch to handle any errors gracefully
         if (window.gie?.widgets?.load) {
-          window.gie.widgets.load();
+          try {
+            window.gie.widgets.load();
+          } catch (e) {
+            console.error("[Getty] Error calling widgets.load():", e);
+            ran.current = false;
+          }
         } else {
           console.error("[Getty] widgets.load missing even after script");
           ran.current = false;
