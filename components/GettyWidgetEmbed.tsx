@@ -151,6 +151,13 @@ export default function GettyWidgetEmbed({
         console.log(`✅ GettyWidgetEmbed: Iframe found in container ${containerId}`)
         const rect = container.getBoundingClientRect()
         console.log(`GettyWidgetEmbed: Container position - y: ${rect.y}, height: ${rect.height}`)
+        
+        // Force iframe on top - remove any overlay issues
+        iframe.style.pointerEvents = "auto"
+        iframe.style.position = "relative"
+        iframe.style.zIndex = "999999"
+        console.log(`GettyWidgetEmbed: Applied z-index and pointer-events to iframe`)
+        
         return true
       }
 
@@ -165,9 +172,13 @@ export default function GettyWidgetEmbed({
         const placeholder = container.querySelector(`a#${widgetId}`)
         if (placeholder) {
           const clonedIframe = matchingIframe.cloneNode(true) as HTMLIFrameElement
+          // Force iframe on top
+          clonedIframe.style.pointerEvents = "auto"
+          clonedIframe.style.position = "relative"
+          clonedIframe.style.zIndex = "999999"
           container.insertBefore(clonedIframe, placeholder)
           matchingIframe.remove()
-          console.log(`✅ GettyWidgetEmbed: Iframe moved into container`)
+          console.log(`✅ GettyWidgetEmbed: Iframe moved into container with z-index applied`)
           return true
         }
       }
@@ -197,9 +208,7 @@ export default function GettyWidgetEmbed({
         position: 'relative', 
         width: '100%', 
         maxWidth: '100%', 
-        margin: '0 0 16px 0',
-        outline: '4px solid red',
-        background: 'rgba(255,0,0,0.05)'
+        margin: '0 0 16px 0'
       }} 
       ref={containerRef}
     >

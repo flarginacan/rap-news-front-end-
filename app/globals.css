@@ -151,18 +151,29 @@
     aspect-ratio: 594 / 394;      /* Getty default dimensions */
     position: relative !important;
     overflow: visible !important;
+    isolation: isolate !important;      /* creates a local stacking context */
+    background: transparent !important;
 
     /* If Getty left height:0 / padding hacks, neutralize them */
     padding: 0 !important;
   }
 
+  .getty-embed-wrap::before,
+  .getty-embed-wrap::after {
+    content: none !important;
+    display: none !important;
+  }
+
   .getty-embed-wrap iframe {
     position: relative !important;
+    z-index: 999999 !important;
+    pointer-events: auto !important;
     width: 100% !important;
     height: auto !important;
     min-height: 394px !important;
     border: 0 !important;
     display: block !important;
+    background: transparent !important;
   }
 
   /* Some Getty embeds come as .gie-single; don't let them collapse either */
