@@ -118,25 +118,47 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
         // Inside the queued function, widgets.js has initialized window.gie.widgets
         if (!window.gie?.widgets?.load) {
           console.error('GettyWidgetEmbed: window.gie.widgets.load not available in queue callback')
+          console.error('GettyWidgetEmbed: window.gie =', typeof window.gie, window.gie)
+          // Retry after a short delay
+          setTimeout(() => {
+            if (window.gie?.widgets?.load) {
+              console.log('GettyWidgetEmbed: Retrying widget load after delay')
+              if (widgetConfig && widgetConfig.id && widgetConfig.items) {
+                window.gie.widgets.load({
+                  id: widgetConfig.id,
+                  sig: widgetConfig.sig || '',
+                  items: widgetConfig.items,
+                  w: widgetConfig.w || '594px',
+                  h: widgetConfig.h || '396px',
+                  caption: false,
+                  tld: 'com',
+                  is360: false
+                })
+              } else {
+                window.gie.widgets.load()
+              }
+            }
+          }, 500)
           return
         }
 
-        // Prefer config with sig if available
-        if (widgetConfig && widgetConfig.id && widgetConfig.sig && widgetConfig.items) {
-          console.log(`GettyWidgetEmbed: Loading widget with config (id: ${widgetConfig.id}, sig: ${widgetConfig.sig.substring(0, 10)}...)`)
+        // Prefer config with sig if available, but also work with just id and items
+        if (widgetConfig && widgetConfig.id && widgetConfig.items) {
+          console.log(`GettyWidgetEmbed: Loading widget with config (id: ${widgetConfig.id}, sig: ${widgetConfig.sig ? widgetConfig.sig.substring(0, 10) + '...' : 'MISSING'}, items: ${widgetConfig.items})`)
           window.gie.widgets.load({
             id: widgetConfig.id,
-            sig: widgetConfig.sig,
+            sig: widgetConfig.sig || '',
             items: widgetConfig.items,
             w: widgetConfig.w || '594px',
-            h: widgetConfig.h || '594px',
+            h: widgetConfig.h || '396px',
             caption: false,
             tld: 'com',
             is360: false
           })
         } else {
           // Fallback: scan DOM for all gie-single anchors
-          console.log(`GettyWidgetEmbed: Loading widget via DOM scan (no config)`)
+          console.log(`GettyWidgetEmbed: Loading widget via DOM scan (no config or missing fields)`)
+          console.log(`GettyWidgetEmbed: widgetConfig =`, widgetConfig)
           window.gie.widgets.load()
         }
       })

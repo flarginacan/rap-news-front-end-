@@ -280,24 +280,49 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string } | undefined = undefined
   
   // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
-  // Match anchor + optional script tag immediately after
-  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>(\s*<script[^>]*>[\s\S]*?<\/script>)?/i)
+  // Match anchor + optional script tags (may have <br /> tags between them)
+  // Updated regex to handle <br /> tags and match scripts that come after the anchor
+  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>([\s\S]{0,2000}?)(?:<\/p>|$)/i)
   if (gieSingleMatch) {
-    gettyAnchorHtml = gieSingleMatch[0].replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').trim() // Anchor only
+    // Extract just the anchor (remove any scripts and <br /> tags)
+    gettyAnchorHtml = gieSingleMatch[0].match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>/i)?.[0] || ''
+    gettyAnchorHtml = gettyAnchorHtml.trim()
     const widgetId = gieSingleMatch[1]
     
-    // Try to find widget config in script tags (check both in the match and nearby in content)
-    const scriptInMatch = gieSingleMatch[0].match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    // Try to find widget config in script tags - search in the full match (includes content after anchor)
+    // Look for gie.widgets.load({...}) pattern
+    const fullMatchContent = gieSingleMatch[0]
+    const scriptInMatch = fullMatchContent.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    // Also search in the broader content context (within 500 chars of the anchor)
     const scriptMatch = scriptInMatch || content.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
     if (scriptMatch) {
       try {
-        const configStr = `{${scriptMatch[1]}}`;
-        const jsonStr = configStr
-          .replace(/'/g, '"')
-          .replace(/(\w+):/g, '"$1":')
-          .replace(/:\s*"(\d+)px"/g, ':$1')
-          .replace(/:\s*"(\d+)"/g, ':$1')
-        const config = JSON.parse(jsonStr);
+        // Extract the config object content (between { and })
+        const configContent = scriptMatch[1]
+        // Parse key-value pairs, handling both single and double quotes
+        const config: any = {}
+        
+        // Match key:value pairs (handling quotes and numbers)
+        const pairs = configContent.match(/(\w+)\s*:\s*([^,}]+)/g)
+        if (pairs) {
+          pairs.forEach((pair: string) => {
+            const match = pair.match(/(\w+)\s*:\s*(.+)/)
+            if (match) {
+              const key = match[1]
+              let value = match[2].trim()
+              // Remove quotes if present
+              if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1)
+              }
+              // Handle boolean and numeric values
+              if (value === 'true') config[key] = true
+              else if (value === 'false') config[key] = false
+              else if (/^\d+$/.test(value)) config[key] = parseInt(value, 10)
+              else if (/^\d+px$/.test(value)) config[key] = value // Keep '594px' as string
+              else config[key] = value
+            }
+          })
+        }
         
         if (config.id && config.items) {
           // CRITICAL: Use anchor ID as source of truth, but prefer config.id if it matches
@@ -307,20 +332,31 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
             id: finalId,
             sig: config.sig || '',
             items: String(config.items),
-            w: config.w,
-            h: config.h
+            w: config.w || '594px',
+            h: config.h || '396px'
           }
           if (config.id !== widgetId) {
             console.warn(`[convertWordPressPost] Config ID (${config.id}) != Anchor ID (${widgetId}), using anchor ID`)
           }
-          console.log(`[convertWordPressPost] Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}`)
+          console.log(`[convertWordPressPost] ✅ Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}, items=${gettyWidgetConfig.items}`)
+        } else {
+          console.warn(`[convertWordPressPost] ⚠️  Config missing required fields: id=${config.id}, items=${config.items}`)
         }
       } catch (e) {
-        console.log(`[convertWordPressPost] Could not parse widget config: ${e}`)
+        console.error(`[convertWordPressPost] ❌ Could not parse widget config: ${e}`)
+        console.error(`[convertWordPressPost] Script match: ${scriptMatch[0]?.substring(0, 200)}`)
       }
+    } else {
+      console.warn(`[convertWordPressPost] ⚠️  No widget config script found for anchor ID: ${widgetId}`)
     }
     
-    console.log(`[convertWordPressPost] Extracted Getty anchor HTML (${gettyAnchorHtml.length} chars)`)
+    if (gettyAnchorHtml) {
+      console.log(`[convertWordPressPost] ✅ Extracted Getty anchor HTML (${gettyAnchorHtml.length} chars), ID: ${widgetId}`)
+    } else {
+      console.error(`[convertWordPressPost] ❌ Failed to extract anchor HTML`)
+    }
+  } else {
+    console.warn(`[convertWordPressPost] ⚠️  No gie-single anchor found in content`)
   }
 
   // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
