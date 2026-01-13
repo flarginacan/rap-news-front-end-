@@ -28,6 +28,15 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
     // Reset load flag when anchor/config changes
     hasLoadedRef.current = false
 
+    // Install Getty queue shim ONLY if window.gie doesn't exist or is not a function
+    if (typeof window.gie !== 'function') {
+      // CRITICAL: window.gie MUST be a function, never an object
+      window.gie = function(c: any) {
+        (window.gie.q = window.gie.q || []).push(c)
+      }
+      console.log('GettyWidgetEmbed: Installed queue shim (window.gie is now a function)')
+    }
+
     // Load widgets.js once globally
     if (!document.getElementById('getty-widgets-script')) {
       const s = document.createElement('script')
@@ -36,18 +45,18 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
       s.async = true
       s.onload = () => {
         console.log('GettyWidgetEmbed: widgets.js script loaded')
-        // Wait a bit for script to fully initialize
+        // Wait a tick for widgets.js to initialize window.gie.widgets
         setTimeout(() => {
           triggerWidgetLoad()
-        }, 200)
+        }, 100)
       }
       document.body.appendChild(s)
       console.log('GettyWidgetEmbed: Loading widgets.js script')
     } else {
-      // Script already exists, wait a bit then trigger load
+      // Script already exists, wait a tick then trigger load
       setTimeout(() => {
         triggerWidgetLoad()
-      }, 200)
+      }, 100)
     }
 
     // Function to trigger widget load - waits for anchor to be in DOM
@@ -93,13 +102,15 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
 
       console.log(`GettyWidgetEmbed: Found anchor with ID: ${widgetId}`)
 
-      // Wait for widgets.js to be ready
-      if (!window.gie) {
-        // Initialize gie queue
-        window.gie = window.gie || function(c: any) { (window.gie.q = window.gie.q || []).push(c); }
+      // Verify window.gie is still a function (never overwrite it!)
+      if (typeof window.gie !== 'function') {
+        console.error('GettyWidgetEmbed: CRITICAL - window.gie is not a function! Reinstalling shim...')
+        window.gie = function(c: any) {
+          (window.gie.q = window.gie.q || []).push(c)
+        }
       }
 
-      // Wait for widgets.load to be available
+      // Wait for widgets.load to be available, then queue the load call
       const tryLoad = () => {
         // Check again if already loaded
         if (hasLoadedRef.current) {
@@ -113,33 +124,37 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
           return
         }
 
+        // Check if widgets.js has initialized window.gie.widgets
         if (window.gie?.widgets?.load) {
-          console.log(`GettyWidgetEmbed: Calling widgets.load() for anchor ${widgetId}`)
+          console.log(`GettyWidgetEmbed: Queuing widgets.load() for anchor ${widgetId}`)
           try {
-            // Mark as loaded BEFORE calling (to prevent retries)
+            // Mark as loaded BEFORE queuing (to prevent retries)
             hasLoadedRef.current = true
 
-            // If we have widget config with sig, use it (more reliable)
-            if (widgetConfig && widgetConfig.sig) {
-              console.log(`GettyWidgetEmbed: Using widget config with sig`)
-              window.gie.widgets.load({
-                id: widgetConfig.id,
-                sig: widgetConfig.sig,
-                items: widgetConfig.items,
-                w: widgetConfig.w || '594px',
-                h: widgetConfig.h || '396px',
-                caption: false,
-                tld: 'com',
-                is360: false
-              })
-            } else {
-              // Fallback: call without arguments - widgets.js will scan DOM
-              console.log(`GettyWidgetEmbed: Calling widgets.load() without config (will scan DOM)`)
-              window.gie.widgets.load()
-            }
-            console.log('GettyWidgetEmbed: widgets.load() called successfully')
+            // CRITICAL: Always use the queue pattern - never call widgets.load() directly
+            // Queue the load call inside window.gie(() => ...)
+            window.gie(() => {
+              if (widgetConfig && widgetConfig.sig) {
+                console.log(`GettyWidgetEmbed: Queued widgets.load() with config (sig: ${widgetConfig.sig.substring(0, 10)}...)`)
+                window.gie.widgets.load({
+                  id: widgetConfig.id,
+                  sig: widgetConfig.sig,
+                  items: widgetConfig.items,
+                  w: widgetConfig.w || '100%',
+                  h: widgetConfig.h || '100%',
+                  caption: false,
+                  tld: 'com',
+                  is360: false
+                })
+              } else {
+                // Fallback: queue a DOM scan (widgets.js will find all gie-single anchors)
+                console.log(`GettyWidgetEmbed: Queued widgets.load() without config (will scan DOM)`)
+                window.gie.widgets.load()
+              }
+            })
+            console.log('GettyWidgetEmbed: widgets.load() queued successfully')
           } catch (error: any) {
-            console.error('GettyWidgetEmbed: Error calling widgets.load():', error.message)
+            console.error('GettyWidgetEmbed: Error queuing widgets.load():', error.message)
             // Reset on error so we can retry
             hasLoadedRef.current = false
           }
@@ -149,8 +164,8 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
         }
       }
 
-      // Try once after a delay to ensure DOM is stable
-      loadTimeoutRef.current = setTimeout(tryLoad, 500)
+      // Wait a tick for anchor to be fully in DOM, then try
+      loadTimeoutRef.current = setTimeout(tryLoad, 100)
     }
 
     return () => {
