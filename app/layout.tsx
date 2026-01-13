@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import GettyResponsiveFix from './components/GettyResponsiveFix'
@@ -21,10 +20,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* FRONTEND_DEPLOY_MARKER: PERSON_LINKS_V1 */}
-        <Script
-          src="https://embed-cdn.gettyimages.com/widgets.js"
-          strategy="afterInteractive"
-        />
+        {/* Getty widgets.js is now loaded client-side via lib/getty.ts ensureGettyReady() */}
       </head>
       <body className="bg-white">
         {children}
