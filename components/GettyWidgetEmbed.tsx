@@ -21,8 +21,13 @@ interface GettyWidgetEmbedProps {
 
 export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidgetEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const hasLoadedRef = useRef<boolean>(false)
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
+    // Reset load flag when anchor/config changes
+    hasLoadedRef.current = false
+
     // Load widgets.js once globally
     if (!document.getElementById('getty-widgets-script')) {
       const s = document.createElement('script')
@@ -31,21 +36,39 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
       s.async = true
       s.onload = () => {
         console.log('GettyWidgetEmbed: widgets.js script loaded')
-        // Trigger load after script loads
-        triggerWidgetLoad()
+        // Wait a bit for script to fully initialize
+        setTimeout(() => {
+          triggerWidgetLoad()
+        }, 200)
       }
       document.body.appendChild(s)
       console.log('GettyWidgetEmbed: Loading widgets.js script')
     } else {
-      // Script already exists, trigger load
-      triggerWidgetLoad()
+      // Script already exists, wait a bit then trigger load
+      setTimeout(() => {
+        triggerWidgetLoad()
+      }, 200)
     }
 
     // Function to trigger widget load - waits for anchor to be in DOM
     function triggerWidgetLoad() {
+      // Prevent multiple calls
+      if (hasLoadedRef.current) {
+        console.log('GettyWidgetEmbed: Already loaded, skipping')
+        return
+      }
+
       const container = containerRef.current
       if (!container) {
         console.log('GettyWidgetEmbed: Container not ready yet')
+        return
+      }
+
+      // Check if widget is already loaded (iframe exists)
+      const existingIframe = container.querySelector('iframe[src*="embed.gettyimages.com"]')
+      if (existingIframe) {
+        console.log('GettyWidgetEmbed: Widget already loaded (iframe exists)')
+        hasLoadedRef.current = true
         return
       }
 
@@ -62,6 +85,12 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
         return
       }
 
+      // Verify anchor is still in the DOM and has a parent (not removed by React)
+      if (!anchor.parentNode) {
+        console.log('GettyWidgetEmbed: Anchor has no parent (removed from DOM)')
+        return
+      }
+
       console.log(`GettyWidgetEmbed: Found anchor with ID: ${widgetId}`)
 
       // Wait for widgets.js to be ready
@@ -72,9 +101,24 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
 
       // Wait for widgets.load to be available
       const tryLoad = () => {
+        // Check again if already loaded
+        if (hasLoadedRef.current) {
+          return
+        }
+
+        // Verify anchor still exists
+        const currentAnchor = container.querySelector(`a.gie-single#${widgetId}`) as HTMLAnchorElement | null
+        if (!currentAnchor || !currentAnchor.parentNode) {
+          console.log('GettyWidgetEmbed: Anchor no longer exists, aborting')
+          return
+        }
+
         if (window.gie?.widgets?.load) {
           console.log(`GettyWidgetEmbed: Calling widgets.load() for anchor ${widgetId}`)
           try {
+            // Mark as loaded BEFORE calling (to prevent retries)
+            hasLoadedRef.current = true
+
             // If we have widget config with sig, use it (more reliable)
             if (widgetConfig && widgetConfig.sig) {
               console.log(`GettyWidgetEmbed: Using widget config with sig`)
@@ -96,26 +140,25 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
             console.log('GettyWidgetEmbed: widgets.load() called successfully')
           } catch (error: any) {
             console.error('GettyWidgetEmbed: Error calling widgets.load():', error.message)
+            // Reset on error so we can retry
+            hasLoadedRef.current = false
           }
         } else {
           console.log('GettyWidgetEmbed: window.gie.widgets.load not ready yet, retrying...')
-          setTimeout(tryLoad, 100)
+          loadTimeoutRef.current = setTimeout(tryLoad, 200)
         }
       }
 
-      // Try immediately and with delays
-      tryLoad()
-      setTimeout(tryLoad, 300)
-      setTimeout(tryLoad, 1000)
+      // Try once after a delay to ensure DOM is stable
+      loadTimeoutRef.current = setTimeout(tryLoad, 500)
     }
 
-    // Trigger after a short delay to ensure DOM is ready
-    const timeoutId = setTimeout(() => {
-      triggerWidgetLoad()
-    }, 100)
-
     return () => {
-      clearTimeout(timeoutId)
+      // Cleanup timeouts
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current)
+        loadTimeoutRef.current = null
+      }
     }
   }, [anchorHtml, widgetConfig])
 
