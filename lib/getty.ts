@@ -35,12 +35,15 @@ export function ensureGettyScript(): Promise<void> {
     // If script already exists, just wait for ready
     const existing = document.querySelector('script[data-getty="widgets"]') as HTMLScriptElement | null;
     if (existing) {
-      // If already loaded, wait for API
-      if (existing.complete || existing.readyState === 'complete') {
+      // If script is already in DOM, wait for API (script might be loading or loaded)
+      // Check if window.gie exists as a quick check, otherwise wait for load event
+      if (window.gie) {
         waitForReady();
       } else {
         existing.addEventListener("load", () => waitForReady());
         existing.addEventListener("error", () => reject(new Error("Getty widgets.js failed to load")));
+        // Also start waiting in case load already fired
+        setTimeout(() => waitForReady(), 100);
       }
       return;
     }
