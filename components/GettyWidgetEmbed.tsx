@@ -32,11 +32,32 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
 
     // STEP 1: Ensure window.gie is a queue function (canonical Getty pattern)
     // NOTE: GlobalGettyLoader handles loading widgets.js globally, we just ensure the queue exists
+    // CRITICAL: Guard against non-functions being pushed
     if (typeof window.gie !== 'function') {
       window.gie = function(c: any) {
-        (window.gie.q = window.gie.q || []).push(c)
+        // CRITICAL: Only push functions, never objects or other values
+        if (typeof c === 'function') {
+          (window.gie.q = window.gie.q || []).push(c)
+        } else {
+          console.error('GettyWidgetEmbed: Blocked attempt to push non-function into window.gie.q:', typeof c, c)
+        }
       }
-      console.log('GettyWidgetEmbed: Installed queue shim (widgets.js loaded by GlobalGettyLoader)')
+      console.log('GettyWidgetEmbed: Installed protected queue shim (widgets.js loaded by GlobalGettyLoader)')
+    } else {
+      // Even if window.gie exists, ensure it has the guard
+      const originalGie = window.gie
+      window.gie = function(c: any) {
+        if (typeof c === 'function') {
+          (originalGie.q = originalGie.q || []).push(c)
+          originalGie(c) // Call original if it's a function
+        } else {
+          console.error('GettyWidgetEmbed: Blocked attempt to push non-function into window.gie.q:', typeof c, c)
+        }
+      }
+      // Preserve q if it exists
+      if (originalGie.q) {
+        window.gie.q = originalGie.q.filter((item: any) => typeof item === 'function')
+      }
     }
 
     // STEP 2: Verify widgets.js is loaded (it should be loaded by GlobalGettyLoader)
