@@ -18,39 +18,32 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
     (async () => {
       await ensureGettyScript(); // only inject <script src=...> and wait for onload
 
-      // Wait for anchor to be in DOM before calling widgets.load()
-      const checkAndLoad = () => {
+      // Wait for anchor to be in DOM
+      // Getty's widgets.js will automatically scan the DOM for .gie-single anchors
+      // We don't need to call widgets.load() - it happens automatically when the script loads
+      const checkAnchor = () => {
         const anchor = document.getElementById(anchorId);
         if (!anchor) {
           // Anchor not ready yet, try again
-          requestAnimationFrame(checkAndLoad);
+          requestAnimationFrame(checkAnchor);
           return;
         }
 
         // Verify anchor has required attributes
         if (!anchor.id || !anchor.getAttribute('data-items')) {
           console.warn("[Getty] Anchor missing required attributes, retrying...");
-          requestAnimationFrame(checkAndLoad);
+          requestAnimationFrame(checkAnchor);
           return;
         }
 
-        // Anchor exists and has required attributes, now call widgets.load()
-        // Use try-catch to handle any errors gracefully
-        if (window.gie?.widgets?.load) {
-          try {
-            window.gie.widgets.load();
-          } catch (e) {
-            console.error("[Getty] Error calling widgets.load():", e);
-            ran.current = false;
-          }
-        } else {
-          console.error("[Getty] widgets.load missing even after script");
-          ran.current = false;
-        }
+        // Anchor exists and has required attributes
+        // Getty's script will automatically process it - no need to call widgets.load()
+        // The script scans the DOM on load and finds all .gie-single anchors
+        console.log("[Getty] Anchor ready, waiting for widgets.js to process it");
       };
 
       // Start checking after a frame
-      requestAnimationFrame(checkAndLoad);
+      requestAnimationFrame(checkAnchor);
     })();
   }, [anchorId]);
 
