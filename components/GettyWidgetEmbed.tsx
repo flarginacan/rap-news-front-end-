@@ -45,8 +45,28 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
       s.src = 'https://embed-cdn.gettyimages.com/widgets.js'
       s.async = true
       s.charset = 'utf-8'
+      s.onload = () => {
+        console.log('GettyWidgetEmbed: widgets.js loaded successfully')
+        console.log('GettyWidgetEmbed: window.gie =', typeof window.gie, window.gie)
+        console.log('GettyWidgetEmbed: window.gie.widgets =', window.gie?.widgets)
+        // Process any queued items
+        if (window.gie?.q && Array.isArray(window.gie.q) && window.gie.q.length > 0) {
+          console.log(`GettyWidgetEmbed: Processing ${window.gie.q.length} queued items`)
+        }
+      }
+      s.onerror = () => {
+        console.error('GettyWidgetEmbed: Failed to load widgets.js')
+      }
       document.head.appendChild(s)
       console.log('GettyWidgetEmbed: Loading widgets.js script in <head>')
+    } else {
+      console.log('GettyWidgetEmbed: widgets.js script already exists')
+      // Check if it's loaded
+      if (window.gie?.widgets?.load) {
+        console.log('GettyWidgetEmbed: widgets.js is already loaded and ready')
+      } else {
+        console.warn('GettyWidgetEmbed: widgets.js script tag exists but widgets.load not available yet')
+      }
     }
 
     // STEP 3: Wait for DOM to be stable, then enqueue load function
@@ -115,51 +135,103 @@ export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidg
       // CRITICAL: Enqueue a FUNCTION (never an object or config directly)
       // This is the canonical Getty pattern
       window.gie(function() {
+        console.log(`GettyWidgetEmbed: Queue callback executing for anchor ID: ${anchorId}`)
+        console.log(`GettyWidgetEmbed: window.gie type:`, typeof window.gie)
+        console.log(`GettyWidgetEmbed: window.gie.widgets:`, window.gie?.widgets)
+        
         // Inside the queued function, widgets.js has initialized window.gie.widgets
         if (!window.gie?.widgets?.load) {
           console.error('GettyWidgetEmbed: window.gie.widgets.load not available in queue callback')
-          console.error('GettyWidgetEmbed: window.gie =', typeof window.gie, window.gie)
+          console.error('GettyWidgetEmbed: window.gie =', window.gie)
+          console.error('GettyWidgetEmbed: window.gie.q length:', window.gie?.q?.length)
+          
           // Retry after a short delay
           setTimeout(() => {
             if (window.gie?.widgets?.load) {
               console.log('GettyWidgetEmbed: Retrying widget load after delay')
+              const anchorStillExists = document.getElementById(anchorId)
+              console.log(`GettyWidgetEmbed: Anchor still exists:`, !!anchorStillExists)
+              
               if (widgetConfig && widgetConfig.id && widgetConfig.items) {
-                window.gie.widgets.load({
-                  id: widgetConfig.id,
-                  sig: widgetConfig.sig || '',
-                  items: widgetConfig.items,
-                  w: widgetConfig.w || '594px',
-                  h: widgetConfig.h || '396px',
-                  caption: false,
-                  tld: 'com',
-                  is360: false
-                })
+                console.log(`GettyWidgetEmbed: Calling widgets.load with config`)
+                try {
+                  window.gie.widgets.load({
+                    id: widgetConfig.id,
+                    sig: widgetConfig.sig || '',
+                    items: widgetConfig.items,
+                    w: widgetConfig.w || '594px',
+                    h: widgetConfig.h || '396px',
+                    caption: false,
+                    tld: 'com',
+                    is360: false
+                  })
+                  console.log('GettyWidgetEmbed: widgets.load() called successfully')
+                } catch (e) {
+                  console.error('GettyWidgetEmbed: Error calling widgets.load():', e)
+                }
               } else {
-                window.gie.widgets.load()
+                console.log('GettyWidgetEmbed: Calling widgets.load() without config (DOM scan)')
+                try {
+                  window.gie.widgets.load()
+                  console.log('GettyWidgetEmbed: widgets.load() called successfully (DOM scan)')
+                } catch (e) {
+                  console.error('GettyWidgetEmbed: Error calling widgets.load():', e)
+                }
               }
+            } else {
+              console.error('GettyWidgetEmbed: widgets.load still not available after retry')
             }
           }, 500)
           return
         }
 
+        // Verify anchor still exists before loading
+        const anchorStillExists = document.getElementById(anchorId)
+        if (!anchorStillExists) {
+          console.error(`GettyWidgetEmbed: Anchor ${anchorId} no longer exists in DOM!`)
+          return
+        }
+        console.log(`GettyWidgetEmbed: Anchor ${anchorId} confirmed in DOM`)
+
         // Prefer config with sig if available, but also work with just id and items
         if (widgetConfig && widgetConfig.id && widgetConfig.items) {
           console.log(`GettyWidgetEmbed: Loading widget with config (id: ${widgetConfig.id}, sig: ${widgetConfig.sig ? widgetConfig.sig.substring(0, 10) + '...' : 'MISSING'}, items: ${widgetConfig.items})`)
-          window.gie.widgets.load({
-            id: widgetConfig.id,
-            sig: widgetConfig.sig || '',
-            items: widgetConfig.items,
-            w: widgetConfig.w || '594px',
-            h: widgetConfig.h || '396px',
-            caption: false,
-            tld: 'com',
-            is360: false
-          })
+          try {
+            window.gie.widgets.load({
+              id: widgetConfig.id,
+              sig: widgetConfig.sig || '',
+              items: widgetConfig.items,
+              w: widgetConfig.w || '594px',
+              h: widgetConfig.h || '396px',
+              caption: false,
+              tld: 'com',
+              is360: false
+            })
+            console.log('GettyWidgetEmbed: widgets.load() called with config')
+            
+            // Check if iframe was created after a delay
+            setTimeout(() => {
+              const iframe = container.querySelector('iframe[src*="embed.gettyimages.com"]')
+              if (iframe) {
+                console.log('GettyWidgetEmbed: ✅ Iframe created successfully!')
+              } else {
+                console.warn('GettyWidgetEmbed: ⚠️ No iframe found after widgets.load() call')
+                console.warn('GettyWidgetEmbed: Anchor still exists:', !!document.getElementById(anchorId))
+              }
+            }, 1000)
+          } catch (e) {
+            console.error('GettyWidgetEmbed: Error calling widgets.load():', e)
+          }
         } else {
           // Fallback: scan DOM for all gie-single anchors
           console.log(`GettyWidgetEmbed: Loading widget via DOM scan (no config or missing fields)`)
           console.log(`GettyWidgetEmbed: widgetConfig =`, widgetConfig)
-          window.gie.widgets.load()
+          try {
+            window.gie.widgets.load()
+            console.log('GettyWidgetEmbed: widgets.load() called (DOM scan)')
+          } catch (e) {
+            console.error('GettyWidgetEmbed: Error calling widgets.load():', e)
+          }
         }
       })
     }
