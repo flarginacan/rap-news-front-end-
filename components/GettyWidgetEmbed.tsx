@@ -18,18 +18,28 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
     (async () => {
       await ensureGettyScript(); // only inject <script src=...> and wait for onload
 
-      // Wait a tick so the anchor is definitely in DOM
-      requestAnimationFrame(() => {
-        // IMPORTANT: do a full scan load (no config)
+      // Wait for anchor to be in DOM before calling widgets.load()
+      const checkAndLoad = () => {
+        const anchor = document.getElementById(anchorId);
+        if (!anchor) {
+          // Anchor not ready yet, try again
+          requestAnimationFrame(checkAndLoad);
+          return;
+        }
+
+        // Anchor exists, now call widgets.load()
         if (window.gie?.widgets?.load) {
           window.gie.widgets.load();
         } else {
           console.error("[Getty] widgets.load missing even after script");
           ran.current = false;
         }
-      });
+      };
+
+      // Start checking after a frame
+      requestAnimationFrame(checkAndLoad);
     })();
-  }, []);
+  }, [anchorId]);
 
   return (
     <a
