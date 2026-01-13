@@ -317,7 +317,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
       const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
       if (scriptMatch) {
-        gettyImageHtml = oldFormatMatch[0] + scriptMatch.join('');
+        // CRITICAL: Remove inline scripts that contain window.gie - they conflict with React component
+        const cleanScripts = scriptMatch.filter(script => !script.match(/(?:window\.gie|gie\.widgets|gie\(function)/i))
+        gettyImageHtml = oldFormatMatch[0] + cleanScripts.join('');
       } else {
         gettyImageHtml = oldFormatMatch[0];
       }
@@ -421,7 +423,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
           <div 
             ref={gettyImageRef}
-            dangerouslySetInnerHTML={{ __html: gettyImageHtml }}
+            dangerouslySetInnerHTML={{ 
+              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?(?:window\.gie|gie\.widgets|gie\(function)[\s\S]*?<\/script>/gi, '') 
+            }}
           />
         </div>
       ) : null}

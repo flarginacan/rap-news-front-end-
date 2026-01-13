@@ -391,6 +391,11 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // Match old format: divs with gettyimages.com or gie-single, plus following script tags
   content = content.replace(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
   
+  // CRITICAL: Remove ALL inline scripts that contain window.gie or gie.widgets
+  // These scripts conflict with our React component's management of window.gie
+  // We extract the config and handle it in React, so we don't need these scripts
+  content = content.replace(/<script[^>]*>[\s\S]*?(?:window\.gie|gie\.widgets|gie\(function)[\s\S]*?<\/script>/gi, '')
+  
   // Remove img tags and figure tags containing images
   content = content.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
   content = content.replace(/<img[^>]*>/gi, '')
