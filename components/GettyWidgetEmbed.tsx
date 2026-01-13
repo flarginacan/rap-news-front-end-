@@ -146,7 +146,7 @@ export default function GettyWidgetEmbed({
         return false
       }
 
-      const iframe = container.querySelector('iframe[src*="embed.gettyimages.com"]')
+      const iframe = container.querySelector('iframe[src*="embed.gettyimages.com"]') as HTMLIFrameElement | null
       if (iframe) {
         console.log(`✅ GettyWidgetEmbed: Iframe found in container ${containerId}`)
         const rect = container.getBoundingClientRect()
