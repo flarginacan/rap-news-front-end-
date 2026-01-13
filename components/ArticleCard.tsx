@@ -424,7 +424,13 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
-              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?(?:window\.gie|gie\.widgets|gie\(function)[\s\S]*?<\/script>/gi, '') 
+              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+                // Remove any script containing gie-related code
+                if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+                  return '';
+                }
+                return match;
+              })
             }}
           />
         </div>

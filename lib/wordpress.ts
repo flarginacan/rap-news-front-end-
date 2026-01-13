@@ -394,7 +394,17 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // CRITICAL: Remove ALL inline scripts that contain window.gie or gie.widgets
   // These scripts conflict with our React component's management of window.gie
   // We extract the config and handle it in React, so we don't need these scripts
-  content = content.replace(/<script[^>]*>[\s\S]*?(?:window\.gie|gie\.widgets|gie\(function)[\s\S]*?<\/script>/gi, '')
+  // Match ANY script that mentions gie (case insensitive, multiple patterns)
+  content = content.replace(/<script[^>]*>[\s\S]*?(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i[\s\S]*?<\/script>/gi, '')
+  
+  // Also remove scripts that might be on the same line or have different formatting
+  content = content.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+    // Only remove if it contains gie-related code (not just the word "get")
+    if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+      return '';
+    }
+    return match;
+  })
   
   // Remove img tags and figure tags containing images
   content = content.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
