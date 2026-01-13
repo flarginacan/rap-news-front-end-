@@ -10,9 +10,16 @@ declare global {
 
 interface GettyWidgetEmbedProps {
   anchorHtml: string
+  widgetConfig?: {
+    id: string
+    sig: string
+    items: string
+    w?: string
+    h?: string
+  }
 }
 
-export default function GettyWidgetEmbed({ anchorHtml }: { anchorHtml: string }) {
+export default function GettyWidgetEmbed({ anchorHtml, widgetConfig }: GettyWidgetEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -66,10 +73,26 @@ export default function GettyWidgetEmbed({ anchorHtml }: { anchorHtml: string })
       // Wait for widgets.load to be available
       const tryLoad = () => {
         if (window.gie?.widgets?.load) {
-          console.log(`GettyWidgetEmbed: Calling widgets.load() to scan for anchor ${widgetId}`)
+          console.log(`GettyWidgetEmbed: Calling widgets.load() for anchor ${widgetId}`)
           try {
-            // Call without arguments - widgets.js will scan DOM for all gie-single anchors
-            window.gie.widgets.load()
+            // If we have widget config with sig, use it (more reliable)
+            if (widgetConfig && widgetConfig.sig) {
+              console.log(`GettyWidgetEmbed: Using widget config with sig`)
+              window.gie.widgets.load({
+                id: widgetConfig.id,
+                sig: widgetConfig.sig,
+                items: widgetConfig.items,
+                w: widgetConfig.w || '594px',
+                h: widgetConfig.h || '396px',
+                caption: false,
+                tld: 'com',
+                is360: false
+              })
+            } else {
+              // Fallback: call without arguments - widgets.js will scan DOM
+              console.log(`GettyWidgetEmbed: Calling widgets.load() without config (will scan DOM)`)
+              window.gie.widgets.load()
+            }
             console.log('GettyWidgetEmbed: widgets.load() called successfully')
           } catch (error: any) {
             console.error('GettyWidgetEmbed: Error calling widgets.load():', error.message)
@@ -94,7 +117,7 @@ export default function GettyWidgetEmbed({ anchorHtml }: { anchorHtml: string })
     return () => {
       clearTimeout(timeoutId)
     }
-  }, [anchorHtml])
+  }, [anchorHtml, widgetConfig])
 
   return (
     <div

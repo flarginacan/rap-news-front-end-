@@ -275,13 +275,43 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
   
-  // Extract ONLY the anchor element from Getty embed (no scripts)
+  // Extract anchor element AND widget config from Getty embed
   let gettyAnchorHtml: string | undefined = undefined
+  let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string } | undefined = undefined
   
-  // Look for gie-single anchor - extract ONLY the anchor, strip any scripts
+  // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
   const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>/i)
   if (gieSingleMatch) {
     gettyAnchorHtml = gieSingleMatch[0]
+    const widgetId = gieSingleMatch[1]
+    
+    // Try to find widget config in script tags (if oEmbed included it)
+    const scriptMatch = content.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    if (scriptMatch) {
+      try {
+        const configStr = `{${scriptMatch[1]}}`;
+        const jsonStr = configStr
+          .replace(/'/g, '"')
+          .replace(/(\w+):/g, '"$1":')
+          .replace(/:\s*"(\d+)px"/g, ':$1')
+          .replace(/:\s*"(\d+)"/g, ':$1')
+        const config = JSON.parse(jsonStr);
+        
+        if (config.id && config.items) {
+          gettyWidgetConfig = {
+            id: config.id || widgetId,
+            sig: config.sig || '',
+            items: String(config.items),
+            w: config.w,
+            h: config.h
+          }
+          console.log(`[convertWordPressPost] Extracted Getty widget config with sig: ${gettyWidgetConfig.sig ? 'YES' : 'NO'}`)
+        }
+      } catch (e) {
+        console.log(`[convertWordPressPost] Could not parse widget config: ${e}`)
+      }
+    }
+    
     console.log(`[convertWordPressPost] Extracted Getty anchor HTML (${gettyAnchorHtml.length} chars)`)
   }
 
@@ -408,6 +438,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     comments: 0, // WordPress REST API doesn't include comment count by default
     content: content,
     gettyAnchorHtml: gettyAnchorHtml,
+    gettyWidgetConfig: gettyWidgetConfig,
   }
 }
 

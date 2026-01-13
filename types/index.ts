@@ -10,6 +10,13 @@ export interface Article {
   content: string;
   slug: string;
   gettyAnchorHtml?: string; // Only the anchor element HTML (no scripts)
+  gettyWidgetConfig?: {
+    id: string;
+    sig: string;
+    items: string;
+    w?: string;
+    h?: string;
+  }; // Widget config extracted from oEmbed (for manual widgets.load() call)
 }
 
 export interface ArticlesResponse {

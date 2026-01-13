@@ -412,7 +412,10 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyAnchorHtml ? (
         <div className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} style={{ marginTop: 0 }}>
-          <GettyWidgetEmbed anchorHtml={article.gettyAnchorHtml} />
+          <GettyWidgetEmbed 
+            anchorHtml={article.gettyAnchorHtml} 
+            widgetConfig={article.gettyWidgetConfig}
+          />
         </div>
       ) : gettyImageHtml ? (
         <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
