@@ -395,19 +395,10 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   // These scripts conflict with our React component's management of window.gie
   // We extract the config and handle it in React, so we don't need these scripts
   // Match ANY script that mentions gie (case insensitive, multiple patterns)
-  // First pass: remove scripts with explicit gie patterns
+  // Remove scripts with explicit gie patterns - do multiple passes to catch all variations
   content = content.replace(/<script[^>]*>[\s\S]*?(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i[\s\S]*?<\/script>/gi, '')
-  
-  // Second pass: remove any remaining scripts containing gie (more aggressive)
-  const gieScriptPattern = /<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi
-  let gieScriptMatch
-  while ((gieScriptMatch = gieScriptPattern.exec(content)) !== null) {
-    const match = gieScriptMatch[0]
-    // Only remove if it contains gie-related code (not just the word "get")
-    if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
-      content = content.replace(match, '')
-    }
-  }
+  // Second pass: catch any remaining scripts with gie
+  content = content.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, '')
   
   // Remove img tags and figure tags containing images
   content = content.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
