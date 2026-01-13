@@ -1,72 +1,48 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { ensureGettyReady } from "@/lib/getty";
-
-type GettyConfig = {
-  id: string;
-  sig: string;
-  items: string;
-  w?: string;
-  h?: string;
-  caption?: boolean;
-  tld?: string;
-  is360?: boolean;
-};
+import { useEffect, useRef } from "react";
+import { ensureGettyScript } from "@/lib/getty"; // loader ONLY loads the script, no queue setup
 
 declare global {
   interface Window { gie?: any; }
 }
 
-interface GettyWidgetEmbedProps {
-  widgetConfig: GettyConfig;
-}
-
-export default function GettyWidgetEmbed({ widgetConfig }: GettyWidgetEmbedProps) {
+export default function GettyWidgetEmbed({ items }: { items: string }) {
+  const anchorId = useRef(`gie_${Math.random().toString(36).slice(2)}`).current;
   const ran = useRef(false);
-
-  const cfg = useMemo(() => ({
-    id: widgetConfig.id,
-    sig: widgetConfig.sig,
-    items: widgetConfig.items,
-    w: widgetConfig.w ?? "100%",
-    h: widgetConfig.h ?? "520px",
-    caption: widgetConfig.caption ?? false,
-    tld: widgetConfig.tld ?? "com",
-    is360: widgetConfig.is360 ?? false,
-  }), [widgetConfig]);
 
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
 
     (async () => {
-      // ensure anchor exists
-      const el = document.getElementById(cfg.id);
-      if (!el) {
-        console.warn("[Getty] anchor not found:", cfg.id);
-        ran.current = false;
-        return;
-      }
+      await ensureGettyScript(); // only inject <script src=...> and wait for onload
 
-      try {
-        await ensureGettyReady();
-        window.gie.widgets.load(cfg);
-      } catch (e) {
-        console.error("[Getty] load failed:", e);
-        ran.current = false;
-      }
+      // Wait a tick so the anchor is definitely in DOM
+      requestAnimationFrame(() => {
+        // IMPORTANT: do a full scan load (no config)
+        if (window.gie?.widgets?.load) {
+          window.gie.widgets.load();
+        } else {
+          console.error("[Getty] widgets.load missing even after script");
+          ran.current = false;
+        }
+      });
     })();
-  }, [cfg]);
+  }, []);
 
-  // ✅ Render anchor as JSX (no scripts, no innerHTML)
   return (
     <a
-      id={cfg.id}
+      id={anchorId}
       className="gie-single"
-      href={`https://www.gettyimages.com/detail/${cfg.items}`}
+      href={`https://www.gettyimages.com/detail/${items}`}
       target="_blank"
       rel="noopener noreferrer"
+      data-items={items}
+      data-caption="false"
+      data-tld="com"
+      data-width="594"
+      data-height="396"
       style={{
         color: "#a7a7a7",
         textDecoration: "none",

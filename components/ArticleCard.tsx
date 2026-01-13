@@ -338,10 +338,10 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
-      {article.gettyWidgetConfig ? (
+      {article.gettyWidgetConfig?.items ? (
         <div className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden' }}>
           <GettyWidgetEmbed 
-            widgetConfig={article.gettyWidgetConfig}
+            items={article.gettyWidgetConfig.items}
           />
         </div>
       ) : gettyImageHtml ? (
@@ -363,7 +363,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       
       {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
       {/* Fix mobile white space: mt-0 on mobile to prevent double spacing */}
-      {!article.gettyWidgetConfig && !gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
+      {!article.gettyWidgetConfig?.items && !gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
         <div className={showLink ? 'px-4 md:px-0' : 'px-0 md:px-4'}>
           <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? 'mt-0 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
             <img
@@ -376,7 +376,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       )}
       
       <div className="px-4 md:px-6 lg:px-8">
-        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink && article.gettyWidgetConfig ? 'mt-0' : !showLink ? 'mt-0' : 'mt-4'} md:mt-6 leading-tight text-balance`}>
+        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink && article.gettyWidgetConfig?.items ? 'mt-0' : !showLink ? 'mt-0' : 'mt-4'} md:mt-6 leading-tight text-balance`}>
           {article.title}
         </h1>
         
