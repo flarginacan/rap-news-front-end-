@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
+import ShareButton from './ShareButton'
 
 interface ArticleCardProps {
   article: Article
@@ -391,6 +392,8 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           >
             {article.comments} comments
           </Link>
+          <span className="text-gray-400">•</span>
+          <ShareButton articleSlug={article.slug} articleTitle={article.title} />
         </div>
         
         {showLink ? (
