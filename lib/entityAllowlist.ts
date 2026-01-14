@@ -14,4 +14,5 @@ export const entityAllowlist: string[] = [
   'kendrick-lamar-2',
   'future',
   'big-sean',
+  'nelly',
 ]
