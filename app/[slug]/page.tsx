@@ -42,10 +42,28 @@ export default async function SlugPage({
   let content: JSX.Element | null = null
 
   // B) ENTITY FIRST (tag feed)
-  // Safety check: only treat as entity if in allowlist
+  // Check if this is an entity page by:
+  // 1. Checking allowlist (for known artists)
+  // 2. OR checking if tag exists and has posts (auto-detect all artists)
   const isInAllowlist = entityAllowlist.includes(slug)
   
-  if (isInAllowlist) {
+  // Auto-detect: check if tag exists and has posts
+  let isEntityPage = isInAllowlist
+  if (!isEntityPage) {
+    try {
+      const { fetchTagBySlug } = await import('@/lib/wordpress')
+      const tag = await fetchTagBySlug(slug)
+      // If tag exists and has posts, treat it as an entity page
+      if (tag && tag.count > 0) {
+        console.log(`[SlugPage] Auto-detected entity page: ${slug} (${tag.count} posts)`)
+        isEntityPage = true
+      }
+    } catch (error) {
+      console.log(`[SlugPage] Could not check tag for auto-detection: ${error}`)
+    }
+  }
+  
+  if (isEntityPage) {
     try {
       console.log('[SlugPage] Slug is in allowlist, resolving entity tag group...')
       
