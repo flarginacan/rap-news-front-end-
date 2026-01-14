@@ -43,7 +43,11 @@
     },
     {
       "source": "/:slug",
-      "destination": "https://tsf.dvj.mybluehost.me/:slug"
+      "destination": "https://tsf.dvj.mybluehost.me/:slug/"
+    },
+    {
+      "source": "/:slug/",
+      "destination": "https://tsf.dvj.mybluehost.me/:slug/"
     }
   ]
 }
