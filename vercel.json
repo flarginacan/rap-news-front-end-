@@ -40,14 +40,6 @@
     {
       "source": "/category/:path*",
       "destination": "https://tsf.dvj.mybluehost.me/category/:path*"
-    },
-    {
-      "source": "/:slug",
-      "destination": "https://tsf.dvj.mybluehost.me/:slug/"
-    },
-    {
-      "source": "/:slug/",
-      "destination": "https://tsf.dvj.mybluehost.me/:slug/"
     }
   ]
 }
