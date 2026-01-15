@@ -110,27 +110,23 @@ export default function GlobalGettyLoader() {
       } else {
         console.log('GlobalGettyLoader: widgets.js script already exists')
         
-        // If script already exists, check if widgets is ready and re-scan
+        // If script already exists, check if widgets is ready and re-scan (safely)
         if (window.gie?.widgets?.load && typeof window.gie.widgets.load === 'function') {
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-              console.log('GlobalGettyLoader: widgets.js already loaded, re-scanning')
+          const waitForDOM = () => {
+            const anchors = document.querySelectorAll('a.gie-single, .getty-embed-wrap, [class*="getty"]')
+            if (anchors.length > 0) {
               try {
+                console.log('GlobalGettyLoader: widgets.js already loaded, re-scanning (found', anchors.length, 'elements)')
                 window.gie.widgets.load()
               } catch (e) {
                 console.error('GlobalGettyLoader: Error during re-scan:', e)
+                // Don't throw - let widgets.js handle embeds naturally
               }
-            }, { timeout: 2000 })
-          } else {
-            setTimeout(() => {
-              console.log('GlobalGettyLoader: widgets.js already loaded, re-scanning')
-              try {
-                window.gie.widgets.load()
-              } catch (e) {
-                console.error('GlobalGettyLoader: Error during re-scan:', e)
-              }
-            }, 100)
+            } else {
+              setTimeout(waitForDOM, 200)
+            }
           }
+          setTimeout(waitForDOM, 300)
         }
       }
     }
