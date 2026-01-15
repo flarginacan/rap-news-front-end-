@@ -135,14 +135,14 @@ export default function GlobalGettyLoader() {
       }
     }
     
-    // Defer loading until after initial render and when browser is idle
-    // This reduces Total Blocking Time significantly (1,310ms → ~500-800ms expected)
+    // Load immediately but use async to avoid blocking
+    // Reduced timeout to ensure images load quickly (was causing images not to appear)
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      // Use requestIdleCallback if available (better for performance)
-      requestIdleCallback(loadGettyScript, { timeout: 2000 })
+      // Use requestIdleCallback with shorter timeout to ensure images load
+      requestIdleCallback(loadGettyScript, { timeout: 500 })
     } else {
-      // Fallback: Wait for next frame + small delay
-      setTimeout(loadGettyScript, 100)
+      // Fallback: Load after a very short delay
+      setTimeout(loadGettyScript, 50)
     }
   }, [])
 

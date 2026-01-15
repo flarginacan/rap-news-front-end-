@@ -206,20 +206,6 @@ function cleanWordPressContent(html: string): string {
   // CRITICAL: Decode HTML entities FIRST - WordPress may have encoded them
   // We need REAL HTML (<div>, <iframe>), not escaped text (&lt;div&gt;)
   let decoded = html
-  
-  // PERFORMANCE: Add title attributes to iframes for accessibility (fixes Lighthouse warning)
-  // This must happen BEFORE any other processing
-  decoded = decoded.replace(
-    /<iframe([^>]*)>/gi,
-    (match, attrs) => {
-      // Check if title already exists
-      if (attrs.includes('title=')) {
-        return match; // Already has title, don't modify
-      }
-      // Add title attribute for accessibility
-      return `<iframe${attrs} title="Getty Images embed">`;
-    }
-  );
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
@@ -230,6 +216,20 @@ function cleanWordPressContent(html: string): string {
     .replace(/&#8220;/g, '"')
     .replace(/&#8221;/g, '"')
     .replace(/&nbsp;/g, ' ')
+  
+  // PERFORMANCE: Add title attributes to iframes for accessibility (fixes Lighthouse warning)
+  // This must happen AFTER decoding HTML entities
+  decoded = decoded.replace(
+    /<iframe([^>]*)>/gi,
+    (match, attrs) => {
+      // Check if title already exists
+      if (attrs.includes('title=')) {
+        return match; // Already has title, don't modify
+      }
+      // Add title attribute for accessibility
+      return `<iframe${attrs} title="Getty Images embed">`;
+    }
+  )
   
   // If content looks like HTML (has tags), clean it up
   if (decoded.includes('<') && decoded.includes('>')) {
