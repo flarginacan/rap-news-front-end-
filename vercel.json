@@ -26,8 +26,20 @@
       "destination": "https://tsf.dvj.mybluehost.me/wp-includes/:path*"
     },
     {
+      "source": "/wp-sitemap.xml",
+      "destination": "https://tsf.dvj.mybluehost.me/wp-sitemap.xml"
+    },
+    {
+      "source": "/wp-sitemap:path*.xml",
+      "destination": "https://tsf.dvj.mybluehost.me/wp-sitemap:path*.xml"
+    },
+    {
       "source": "/sitemap.xml",
-      "destination": "https://tsf.dvj.mybluehost.me/sitemap.xml"
+      "destination": "https://tsf.dvj.mybluehost.me/wp-sitemap.xml"
+    },
+    {
+      "source": "/sitemap_index.xml",
+      "destination": "https://tsf.dvj.mybluehost.me/wp-sitemap.xml"
     },
     {
       "source": "/robots.txt",
