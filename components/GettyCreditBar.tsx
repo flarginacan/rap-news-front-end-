@@ -21,7 +21,12 @@ export default function GettyCreditBar({ hasGetty, creditText, assetUrl, assetId
     (assetId ? `https://www.gettyimages.com/detail/${assetId}` : "");
 
   return (
-    <div className="getty-credit" data-getty-credit="true">
+    <div
+      className="getty-credit"
+      data-getty-credit="true"
+      role="note"
+      aria-label="Getty image credit"
+    >
       {href ? (
         <a href={href} target="_blank" rel="noopener noreferrer">
           {text}

@@ -1,5 +1,6 @@
 import { Article } from '@/types'
 import { extractGettyFromWpContent } from "@/lib/gettyExtract";
+import { fetchGettyOEmbedByUrl } from "@/lib/gettyOembed";
 
 // WordPress API configuration
 // Use direct Bluehost URL to bypass Vercel security checkpoint
@@ -265,6 +266,30 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     });
   }
   
+  // Enrich credit text from Getty oEmbed if needed
+  let creditText = extracted.gettyCreditText;
+  let assetUrl = extracted.gettyAssetUrl;
+  
+  // If we don't have a real "Photo by .../Getty Images" line, fetch it from Getty oEmbed.
+  const looksIncomplete =
+    !creditText ||
+    creditText.trim().toLowerCase() === "getty images" ||
+    !/photo\s+by|photograph\s+by/i.test(creditText);
+  
+  if (assetUrl && looksIncomplete) {
+    try {
+      const o = await fetchGettyOEmbedByUrl(assetUrl);
+      if (o.creditText) creditText = o.creditText;
+      // optionally store embed html if we want later:
+      // extracted.gettyEmbedHtml = extracted.gettyEmbedHtml || o.embedHtml;
+    } catch (e) {
+      // ignore; fallback remains
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[GettyOEmbed] Failed to fetch:", e);
+      }
+    }
+  }
+  
   // Use extracted content as base for further processing
   let content = extracted.contentWithoutGetty;
   
@@ -482,10 +507,10 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     content: content,
     gettyAnchorHtml: gettyAnchorHtml,
     gettyWidgetConfig: gettyWidgetConfig,
-    // New Getty extraction fields (server-side, robust)
+    // New Getty extraction fields (server-side, robust, enriched with oEmbed)
     gettyEmbedHtml: extracted.gettyEmbedHtml,
-    gettyCreditText: extracted.gettyCreditText,
-    gettyAssetUrl: extracted.gettyAssetUrl,
+    gettyCreditText: creditText, // Use enriched credit text from oEmbed
+    gettyAssetUrl: assetUrl, // Use normalized asset URL
     gettyAssetId: extracted.gettyAssetId,
     hasGettyEmbed: extracted.hasGetty,
   }

@@ -30,6 +30,24 @@ function idFromAnyTextOrHref(s: string) {
   return m?.[1] || "";
 }
 
+function normalizeUrl(url: string): string {
+  if (!url) return "";
+  // If it starts with "//", prefix "https:"
+  if (url.startsWith("//")) {
+    return "https:" + url;
+  }
+  // If it starts with "/", prefix "https://www.gettyimages.com"
+  if (url.startsWith("/")) {
+    return "https://www.gettyimages.com" + url;
+  }
+  // If it already has a scheme, return as-is
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  // Otherwise return as-is (might be relative or malformed)
+  return url;
+}
+
 export function extractGettyFromWpContent(html: string): GettyExtraction {
   const $ = cheerio.load(html || "", { decodeEntities: true });
 
@@ -68,9 +86,11 @@ export function extractGettyFromWpContent(html: string): GettyExtraction {
       next.remove();
     }
 
-    // If no URL but we do have an id, build a stable detail url
+    // If no URL but we do have an id, build a stable detail url (oEmbed-compatible format)
     if (!gettyAssetUrl && gettyAssetId) {
-      gettyAssetUrl = `https://www.gettyimages.com/detail/${gettyAssetId}`;
+      gettyAssetUrl = `https://www.gettyimages.com/detail/news-photo/${gettyAssetId}`;
+    } else if (gettyAssetUrl) {
+      gettyAssetUrl = normalizeUrl(gettyAssetUrl);
     }
 
     // Remove the embed wrapper from content
@@ -97,7 +117,9 @@ export function extractGettyFromWpContent(html: string): GettyExtraction {
       gie.remove();
 
       if (!gettyAssetUrl && gettyAssetId) {
-        gettyAssetUrl = `https://www.gettyimages.com/detail/${gettyAssetId}`;
+        gettyAssetUrl = `https://www.gettyimages.com/detail/news-photo/${gettyAssetId}`;
+      } else if (gettyAssetUrl) {
+        gettyAssetUrl = normalizeUrl(gettyAssetUrl);
       }
     }
   }

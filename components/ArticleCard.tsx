@@ -351,6 +351,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   
   // DEV logging
   if (process.env.NODE_ENV !== "production") {
+    console.log("[GettyCreditText]", article.gettyCreditText, article.gettyAssetUrl, article.gettyAssetId);
     console.log("[GettyCreditRender]", {
       hasGetty,
       creditText: (creditText || "").slice(0, 80),
