@@ -75,7 +75,15 @@ export async function transformHtmlWithPersonLinks(
     .filter(p => p.name && p.slug)
     .sort((a, b) => b.name.length - a.name.length);
 
-  let linkCount = 0;
+  // Build Set of allowed href paths (both original slug and canonical slug)
+  const slugSet = new Set<string>();
+  for (const p of peopleSorted) {
+    slugSet.add(`/${p.slug}`);
+    slugSet.add(`/${p.canonicalSlug}`);
+  }
+
+  let linkCount = 0; // Count of new links wrapped from plain text
+  let upgraded = 0; // Count of existing anchors upgraded with person-link class
 
   // Debug: log a quick plain text preview
   const fullText = $.root().text();
@@ -84,6 +92,42 @@ export async function transformHtmlWithPersonLinks(
     const contains = fullText.toLowerCase().includes(p.name.toLowerCase());
     console.log(`[transformHtmlWithPersonLinks] text contains "${p.name}"?`, contains);
   }
+
+  // PASS 1: Upgrade existing anchors that match person slugs
+  $('a').each((_, el) => {
+    const $a = $(el);
+
+    // Skip headings
+    if ($a.closest('h1,h2,h3,h4,h5,h6').length) return;
+
+    const hrefRaw = ($a.attr('href') || '').trim();
+    if (!hrefRaw) return;
+
+    // Only internal paths like "/cardi-b-2"
+    if (!hrefRaw.startsWith('/')) return;
+
+    const hrefPath = hrefRaw.split('#')[0].split('?')[0];
+
+    if (!slugSet.has(hrefPath)) return;
+
+    // Add class without overwriting others
+    const existingClass = $a.attr('class') || '';
+    if (!existingClass.split(/\s+/).includes('person-link')) {
+      $a.attr('class', `${existingClass} person-link`.trim());
+      upgraded += 1;
+    }
+
+    // OPTIONAL: add from= if missing (only for internal entity links)
+    if (articleSlug) {
+      const hasFrom = /[?&]from=/.test(hrefRaw);
+      if (!hasFrom) {
+        const joiner = hrefRaw.includes('?') ? '&' : '?';
+        $a.attr('href', `${hrefRaw}${joiner}from=${encodeURIComponent(articleSlug)}`);
+      }
+    }
+  });
+
+  console.log(`[transformHtmlWithPersonLinks] ✅ anchors upgraded: ${upgraded}`);
 
   // Walk text nodes under body, skipping headings and existing anchors
   const walkerTargets = $('*').contents().toArray();
@@ -134,7 +178,9 @@ export async function transformHtmlWithPersonLinks(
   }
 
   const outHtml = $.root().html() || html;
-  console.log('[transformHtmlWithPersonLinks] ✅ links added:', linkCount);
+  console.log('[transformHtmlWithPersonLinks] ✅ links wrapped (from plain text):', linkCount);
+  console.log('[transformHtmlWithPersonLinks] ✅ anchors upgraded (existing links):', upgraded);
+  console.log('[transformHtmlWithPersonLinks] ✅ total person-link elements:', linkCount + upgraded);
 
-  return { html: outHtml, linkCount };
+  return { html: outHtml, linkCount: linkCount + upgraded };
 }
