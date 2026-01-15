@@ -287,9 +287,14 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
   
+  // CRITICAL: Force caption: false in all Getty embed code (replace caption: true)
+  content = content.replace(/caption:\s*true/gi, 'caption: false')
+  content = content.replace(/caption=true/gi, 'caption=false')
+  content = content.replace(/caption:true/gi, 'caption:false')
+  
   // Extract anchor element AND widget config from Getty embed
   let gettyAnchorHtml: string | undefined = undefined
-  let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string } | undefined = undefined
+  let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string; caption?: boolean } | undefined = undefined
   
   // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
   // Match anchor + optional script tags (may have <br /> tags between them)
@@ -345,12 +350,15 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
             sig: config.sig || '',
             items: String(config.items),
             w: config.w || '594px',
-            h: config.h || '396px'
+            h: config.h || '396px',
+            caption: false // CRITICAL: Always disable captions
           }
           if (config.id !== widgetId) {
             console.warn(`[convertWordPressPost] Config ID (${config.id}) != Anchor ID (${widgetId}), using anchor ID`)
           }
-          console.log(`[convertWordPressPost] ✅ Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}, items=${gettyWidgetConfig.items}`)
+          if (gettyWidgetConfig) {
+            console.log(`[convertWordPressPost] ✅ Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}, items=${gettyWidgetConfig.items}, caption=${gettyWidgetConfig.caption}`)
+          }
         } else {
           console.warn(`[convertWordPressPost] ⚠️  Config missing required fields: id=${config.id}, items=${config.items}`)
         }

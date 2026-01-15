@@ -16,6 +16,7 @@ export interface Article {
     items: string;
     w?: string;
     h?: string;
+    caption?: boolean;
   }; // Widget config extracted from oEmbed (for manual widgets.load() call)
 }
 

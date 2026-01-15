@@ -136,6 +136,14 @@ function extractGettyConfig(scriptContent: string): any | null {
 function transformGettyEmbed(html: string): string {
   let transformed = html;
 
+  // CRITICAL: Force caption: false in all Getty embed code
+  // Replace caption: true with caption: false in widget.load calls
+  transformed = transformed.replace(/caption:\s*true/gi, 'caption: false');
+  // Replace caption=true with caption=false in iframe URLs
+  transformed = transformed.replace(/caption=true/gi, 'caption=false');
+  // Replace caption:true (no space) with caption:false
+  transformed = transformed.replace(/caption:true/gi, 'caption:false');
+
   // Pattern 1: New format - getty-embed-wrap with iframe (keep as-is, just ensure structure)
   transformed = transformed.replace(
     /<div[^>]*class=["'][^"']*getty-embed-wrap[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
