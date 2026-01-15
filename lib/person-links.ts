@@ -30,6 +30,26 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
   console.log(`[transformHtmlWithPersonLinks] People to link: ${people?.length || 0}`)
   console.log(`[transformHtmlWithPersonLinks] People: ${people?.map(p => p.name).join(', ') || 'none'}`)
   
+  // Show different parts of the HTML to find where the actual text is
+  console.log(`[transformHtmlWithPersonLinks] 🔍 HTML start (first 500 chars):`, html.substring(0, 500))
+  // Find where actual paragraph content starts (after Getty divs)
+  const firstParagraphIndex = html.indexOf('<p>')
+  if (firstParagraphIndex > 0) {
+    console.log(`[transformHtmlWithPersonLinks] 🔍 First <p> tag at index: ${firstParagraphIndex}`)
+    console.log(`[transformHtmlWithPersonLinks] 🔍 Content around first paragraph (500 chars):`, html.substring(Math.max(0, firstParagraphIndex - 50), firstParagraphIndex + 450))
+  }
+  // Check if person names exist anywhere in the HTML (case-insensitive)
+  if (people && people.length > 0) {
+    const firstPersonName = people[0].name
+    const nameExists = html.toLowerCase().includes(firstPersonName.toLowerCase())
+    console.log(`[transformHtmlWithPersonLinks] 🔍 Does HTML contain "${firstPersonName}" (case-insensitive)? ${nameExists}`)
+    if (nameExists) {
+      const nameIndex = html.toLowerCase().indexOf(firstPersonName.toLowerCase())
+      console.log(`[transformHtmlWithPersonLinks] 🔍 Found "${firstPersonName}" at index: ${nameIndex}`)
+      console.log(`[transformHtmlWithPersonLinks] 🔍 Context around name (200 chars):`, html.substring(Math.max(0, nameIndex - 100), nameIndex + 100))
+    }
+  }
+  
   if (!html || !people?.length) {
     console.log(`[transformHtmlWithPersonLinks] ⚠️  Early return: html=${!!html}, people.length=${people?.length || 0}`)
     return { html, linkCount: 0 };
