@@ -209,10 +209,15 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   
   // Log for debugging
   console.log(`[convertWordPressPost] Post ID: ${post.id}`)
+  console.log(`[convertWordPressPost] _embedded exists?`, !!post._embedded)
   console.log(`[convertWordPressPost] All terms arrays: ${allTerms.length}`)
+  console.log(`[convertWordPressPost] Flat terms count: ${flatTerms.length}`)
   console.log(`[convertWordPressPost] Tag terms found: ${tagTerms.length}`)
   if (tagTerms.length > 0) {
-    console.log(`[convertWordPressPost] Tag names: ${tagTerms.map((t: any) => t.name).join(', ')}`)
+    console.log(`[convertWordPressPost] Tag names: ${tagTerms.map((t: any) => `${t.name} (${t.taxonomy})`).join(', ')}`)
+  } else {
+    console.log(`[convertWordPressPost] ⚠️  NO TAG TERMS FOUND - checking raw _embedded:`)
+    console.log(`[convertWordPressPost] Raw _embedded['wp:term']:`, JSON.stringify(post._embedded?.['wp:term'], null, 2))
   }
   
   // Get people from tags - treat ALL post_tag as people tags for now
@@ -223,13 +228,20 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
       slug: t?.slug?.trim(),
     }))
     .filter((p: any) => p.name && p.slug)
-    .filter((p: any) => isLikelyPersonTag(p.name, p.slug))
   
-  const peopleMentioned = people
+  console.log(`[convertWordPressPost] 🔍 Before isLikelyPersonTag filter: ${people.length} tags`)
+  people.forEach(p => {
+    const isPerson = isLikelyPersonTag(p.name, p.slug)
+    console.log(`[convertWordPressPost]   - "${p.name}" (${p.slug}): ${isPerson ? '✅ PERSON' : '❌ NOT PERSON'}`)
+  })
+  
+  const peopleMentioned = people.filter((p: any) => isLikelyPersonTag(p.name, p.slug))
   
   console.log(`[convertWordPressPost] People mentioned: ${peopleMentioned.length}`)
   if (peopleMentioned.length > 0) {
     console.log(`[convertWordPressPost] People: ${peopleMentioned.map((p: any) => p.name).join(', ')}`)
+  } else {
+    console.log(`[convertWordPressPost] ⚠️  NO PEOPLE MENTIONED - person linking will be SKIPPED`)
   }
 
   // Format date
@@ -468,18 +480,27 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   content = forceCanonicalCTA(content)
   
   // Link person names in content (if people are mentioned)
-  console.log(`[convertWordPressPost] Before person linking: peopleMentioned.length = ${peopleMentioned.length}`)
+  console.log(`[convertWordPressPost] 🔗 Before person linking: peopleMentioned.length = ${peopleMentioned.length}`)
+  console.log(`[convertWordPressPost] 🔗 Content preview before linking (first 300 chars):`, content.substring(0, 300))
+  
   if (peopleMentioned.length > 0) {
     const { transformHtmlWithPersonLinks } = await import('./person-links')
     const beforeLength = content.length
+    console.log(`[convertWordPressPost] 🔗 Calling transformHtmlWithPersonLinks with ${peopleMentioned.length} people`)
     const result = await transformHtmlWithPersonLinks(content, peopleMentioned)
     content = result.html
     const afterLength = content.length
-    console.log(`[convertWordPressPost] After person linking: content length ${beforeLength} -> ${afterLength}, links added: ${result.linkCount}`)
-    console.log(`[convertWordPressPost] Contains person-link: ${content.includes('person-link')}`)
-    console.log(`[convertWordPressPost] Contains /person/: ${content.includes('/person/')}`)
+    console.log(`[convertWordPressPost] ✅ After person linking: content length ${beforeLength} -> ${afterLength}, links added: ${result.linkCount}`)
+    console.log(`[convertWordPressPost] ✅ Contains person-link: ${content.includes('person-link')}`)
+    console.log(`[convertWordPressPost] ✅ Contains /person/: ${content.includes('/person/')}`)
+    console.log(`[convertWordPressPost] ✅ Content preview after linking (first 500 chars):`, content.substring(0, 500))
+    
+    // Count person-link instances
+    const personLinkMatches = content.match(/class="person-link"/g) || []
+    console.log(`[convertWordPressPost] ✅ Person-link class count: ${personLinkMatches.length}`)
   } else {
-    console.log(`[convertWordPressPost] No people mentioned, skipping person linking`)
+    console.log(`[convertWordPressPost] ⚠️  No people mentioned, skipping person linking`)
+    console.log(`[convertWordPressPost] ⚠️  This is why person-link classes are missing!`)
   }
 
   return {

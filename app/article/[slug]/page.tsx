@@ -48,23 +48,25 @@ export async function generateStaticParams() {
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const slug = params.slug
   
-  // Server-side logging
-  console.log(`[ArticlePage] Fetching article with slug: ${slug}`)
-  
-  try {
-    // Fetch from WordPress by slug with error handling
-    const article = await fetchWordPressPostBySlug(slug)
-    
     // Server-side logging
-    console.log(`[ArticlePage] Post found: ${article ? 'YES' : 'NO'}`)
-    if (article) {
-      console.log(`[ArticlePage] Post title: ${article.title}`)
-      console.log(`[ArticlePage] Content length: ${article.content.length} chars`)
-      console.log(`[ArticlePage] Has href="https://rapnews.com": ${article.content.includes('href="https://rapnews.com"')}`)
-      console.log(`[ArticlePage] Has canonical CTA: ${article.content.includes('Be sure to stay updated') && article.content.includes('href="https://rapnews.com"')}`)
-      console.log(`[ArticlePage] Has person-link: ${article.content.includes('person-link')}`)
-      console.log(`[ArticlePage] Has /person/ links: ${article.content.includes('/person/')}`)
-    }
+    console.log(`[ArticlePage] Fetching article with slug: ${slug}`)
+    
+    try {
+      // Fetch from WordPress by slug with error handling
+      const article = await fetchWordPressPostBySlug(slug)
+      
+      // Server-side logging
+      console.log(`[ArticlePage] Post found: ${article ? 'YES' : 'NO'}`)
+      if (article) {
+        console.log(`[ArticlePage] Post title: ${article.title}`)
+        console.log(`[ArticlePage] Content length: ${article.content.length} chars`)
+        console.log(`[ArticlePage] Has href="https://rapnews.com": ${article.content.includes('href="https://rapnews.com"')}`)
+        console.log(`[ArticlePage] Has canonical CTA: ${article.content.includes('Be sure to stay updated') && article.content.includes('href="https://rapnews.com"')}`)
+        console.log(`[ArticlePage] Has person-link: ${article.content.includes('person-link')}`)
+        console.log(`[ArticlePage] Has /person/ links: ${article.content.includes('/person/')}`)
+        console.log(`[ArticlePage] 🔍 DEBUG: Content preview (first 500 chars):`, article.content.substring(0, 500))
+        console.log(`[ArticlePage] 🔍 DEBUG: Person-link count in content:`, (article.content.match(/person-link/g) || []).length)
+      }
     
     // If no article found, show 404 page (not white screen)
     if (!article) {
