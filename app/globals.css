@@ -52,14 +52,26 @@
     @apply text-red-600 no-underline font-medium hover:underline;
   }
   
+  /* Override no-underline for person-link specifically */
+  .article-content a.person-link {
+    text-decoration: underline !important;
+  }
+  
   /* Person link styling - underlined and clickable in article content */
   /* Use very specific selectors to override any conflicting styles */
+  /* Universal selector to catch ALL person-link instances */
+  a.person-link,
+  .person-link,
   .article-content a.person-link,
   .article-content .person-link,
   .article-content p a.person-link,
   .article-content p .person-link,
   .article-content div a.person-link,
-  .article-content div .person-link {
+  .article-content div .person-link,
+  .article-content span a.person-link,
+  .article-content span .person-link,
+  article a.person-link,
+  article .person-link {
     text-decoration: underline !important;
     text-decoration-line: underline !important;
     text-decoration-style: solid !important;
@@ -70,8 +82,11 @@
     color: #dc2626 !important; /* red-600 */
     pointer-events: auto !important;
     font-weight: 500 !important;
+    border-bottom: none !important; /* Remove any border-bottom that might interfere */
   }
   
+  a.person-link:hover,
+  .person-link:hover,
   .article-content a.person-link:hover,
   .article-content .person-link:hover,
   .article-content p a.person-link:hover,
