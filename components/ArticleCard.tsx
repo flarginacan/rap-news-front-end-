@@ -381,18 +381,18 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           {article.title}
         </h1>
         
-        <div className="flex items-center text-sm md:text-base text-gray-500 space-x-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-gray-100">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm md:text-base text-gray-500 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-gray-100">
           <span className="font-semibold text-gray-700">{article.author}</span>
-          <span className="text-gray-400">•</span>
-          <span>{article.date}</span>
-          <span className="text-gray-400">•</span>
+          <span className="text-gray-400 hidden sm:inline">•</span>
+          <span className="whitespace-nowrap">{article.date}</span>
+          <span className="text-gray-400 hidden sm:inline">•</span>
           <Link 
             href={`/article/${article.slug}/comments`}
-            className="text-red-600 hover:text-red-700 hover:underline cursor-pointer font-medium"
+            className="text-black hover:text-gray-800 hover:underline cursor-pointer font-medium whitespace-nowrap"
           >
             {article.comments} comments
           </Link>
-          <span className="text-gray-400">•</span>
+          <span className="text-gray-400 hidden sm:inline">•</span>
           <ShareButton articleSlug={article.slug} articleTitle={article.title} />
         </div>
         

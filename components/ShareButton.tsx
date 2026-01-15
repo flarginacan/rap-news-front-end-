@@ -58,7 +58,7 @@ export default function ShareButton({ articleSlug, articleTitle }: ShareButtonPr
     <>
       <button
         onClick={handleShareClick}
-        className="text-red-600 hover:text-red-700 hover:underline cursor-pointer font-medium"
+        className="text-red-600 hover:text-red-700 hover:underline cursor-pointer font-medium whitespace-nowrap"
       >
         Share this post
       </button>
