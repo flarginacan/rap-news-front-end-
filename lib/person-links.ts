@@ -98,27 +98,64 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
 
         // Word-boundary-ish match for the full name (allows whitespace between words)
         // Also allows possessive: "Fetty Wap's"
+        // Try multiple patterns to handle different HTML contexts
         const tokens = name.split(/\s+/).map(escapeRegExp);
-        const pattern = `\\b${tokens.join("\\s+")}(?:'s)?\\b`;
-        const re = new RegExp(pattern, "g");
+        
+        // Pattern 1: Standard word boundary (works in plain text)
+        const pattern1 = `\\b${tokens.join("\\s+")}(?:'s)?\\b`;
+        
+        // Pattern 2: More flexible - handles HTML tag boundaries
+        // Matches even if name is at start/end of HTML tag content
+        const pattern2 = `(?:^|>|\\s)${tokens.join("\\s+")}(?:'s)?(?:<|\\s|$)`;
+        
+        // Pattern 3: Very flexible - just the name with optional whitespace
+        const pattern3 = `${tokens.join("\\s+")}(?:'s)?`;
+        
+        // Try pattern 1 first (most strict)
+        let pattern = pattern1;
+        let re = new RegExp(pattern, "g");
         
         // Debug: Check if pattern would match
-        const testMatches = out.match(re);
+        let testMatches = out.match(re);
         console.log(`[transformHtmlWithPersonLinks] 🔍 Searching for "${name}" with pattern: ${pattern}`)
         console.log(`[transformHtmlWithPersonLinks] 🔍 Test matches found: ${testMatches ? testMatches.length : 0}`)
+        
+        // If pattern 1 doesn't match, try pattern 2 (more flexible)
+        if (!testMatches || testMatches.length === 0) {
+          console.log(`[transformHtmlWithPersonLinks] ⚠️  Pattern 1 failed, trying pattern 2 (flexible)`)
+          pattern = pattern2;
+          re = new RegExp(pattern, "g");
+          testMatches = out.match(re);
+          console.log(`[transformHtmlWithPersonLinks] 🔍 Pattern 2 matches: ${testMatches ? testMatches.length : 0}`)
+        }
+        
+        // If pattern 2 doesn't match, try pattern 3 (very flexible)
+        if (!testMatches || testMatches.length === 0) {
+          console.log(`[transformHtmlWithPersonLinks] ⚠️  Pattern 2 failed, trying pattern 3 (very flexible)`)
+          pattern = pattern3;
+          re = new RegExp(pattern, "gi"); // case-insensitive for pattern 3
+          testMatches = out.match(re);
+          console.log(`[transformHtmlWithPersonLinks] 🔍 Pattern 3 matches: ${testMatches ? testMatches.length : 0}`)
+        }
+        
         if (testMatches && testMatches.length > 0) {
           console.log(`[transformHtmlWithPersonLinks] 🔍 Sample matches: ${testMatches.slice(0, 3).join(', ')}`)
         } else {
           // Try case-insensitive search to see if name exists with different casing
           const caseInsensitivePattern = new RegExp(name.replace(/\s+/g, '\\s+'), 'gi');
           const caseInsensitiveMatches = out.match(caseInsensitivePattern);
-          console.log(`[transformHtmlWithPersonLinks] ⚠️  No matches with word boundaries. Case-insensitive matches: ${caseInsensitiveMatches ? caseInsensitiveMatches.length : 0}`)
+          console.log(`[transformHtmlWithPersonLinks] ⚠️  All patterns failed. Case-insensitive matches: ${caseInsensitiveMatches ? caseInsensitiveMatches.length : 0}`)
           if (caseInsensitiveMatches && caseInsensitiveMatches.length > 0) {
             console.log(`[transformHtmlWithPersonLinks] ⚠️  Found with different casing: ${caseInsensitiveMatches.slice(0, 3).join(', ')}`)
+            // Use the case-insensitive pattern as fallback
+            pattern = name.replace(/\s+/g, '\\s+');
+            re = new RegExp(pattern, "gi");
           }
         }
 
         const beforeReplace = out;
+        
+        // Try to replace with the current regex
         out = out.replace(re, (match) => {
           linkCount += 1;
           // Use canonical slug and point to entity page, not /person/
@@ -131,8 +168,36 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
           return linkHtml;
         });
         
+        // If no matches with regex, try a more aggressive approach: find the name anywhere and wrap it
+        if (beforeReplace === out && testMatches && testMatches.length === 0) {
+          // Last resort: use a very simple pattern that just finds the name (case-insensitive)
+          const simplePattern = new RegExp(`(${tokens.join("\\s+")}(?:'s)?)`, "gi");
+          const simpleMatches = out.match(simplePattern);
+          if (simpleMatches && simpleMatches.length > 0) {
+            console.log(`[transformHtmlWithPersonLinks] ⚠️  Using fallback simple pattern, found ${simpleMatches.length} matches`)
+            out = out.replace(simplePattern, (match) => {
+              // Don't replace if already inside an <a> tag
+              const beforeMatch = out.substring(Math.max(0, out.indexOf(match) - 50), out.indexOf(match));
+              const afterMatch = out.substring(out.indexOf(match) + match.length, Math.min(out.length, out.indexOf(match) + match.length + 50));
+              if (beforeMatch.includes('<a') && afterMatch.includes('</a>')) {
+                return match; // Already in a link, skip
+              }
+              
+              linkCount += 1;
+              const href = articleSlug 
+                ? `/${person.canonicalSlug}?from=${encodeURIComponent(articleSlug)}`
+                : `/${person.canonicalSlug}`;
+              const linkHtml = `<a class="person-link" href="${href}">${match}</a>`;
+              console.log(`[transformHtmlWithPersonLinks] ✅ Fallback linked "${match}" → ${href}`)
+              return linkHtml;
+            });
+          }
+        }
+        
         if (beforeReplace !== out) {
           console.log(`[transformHtmlWithPersonLinks] ✅ Successfully replaced "${name}" in this part`)
+        } else if (testMatches && testMatches.length === 0) {
+          console.log(`[transformHtmlWithPersonLinks] ❌ Failed to replace "${name}" - no matches found in this part`)
         }
       }
 
