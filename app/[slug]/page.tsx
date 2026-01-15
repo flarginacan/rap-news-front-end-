@@ -27,7 +27,7 @@ export default async function SlugPage({
 
   // A) Reserved paths check
   const reservedPaths = [
-    'wp-json', 'wp-admin', 'wp-content', 'wp-includes',
+    'wp-json', 'wp-admin', 'wp-content', 'wp-includes', 'wp-sitemap.xml', 'sitemap.xml', 'robots.txt',
     'feed', 'comments', 'search', 'author', 'category',
     'tag', 'page', 'attachment', 'trackback', 'robots.txt',
     'api', '_next', 'favicon.ico', 'sitemap.xml', 'article'
