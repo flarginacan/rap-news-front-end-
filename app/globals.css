@@ -25,7 +25,7 @@
   }
   
   .article-content p:first-of-type {
-    @apply text-xl md:text-2xl font-semibold text-black mb-8 leading-8;
+    @apply text-xl md:text-2xl font-normal text-black mb-8 leading-8;
   }
   
   .article-content h2 {
@@ -265,7 +265,7 @@
   
   /* Remove duplicate title paragraphs */
   .article-content p:first-of-type {
-    @apply text-xl md:text-2xl font-semibold text-black mb-8 leading-8;
+    @apply text-xl md:text-2xl font-normal text-black mb-8 leading-8;
   }
   
   /* Better spacing for first paragraph after embed */
