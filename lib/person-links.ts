@@ -25,12 +25,22 @@ async function getCanonicalEntitySlug(slug: string): Promise<string> {
  * @param articleSlug Optional article slug to add ?from= query param for pinning
  */
 export async function transformHtmlWithPersonLinks(html: string, people: PersonRef[], articleSlug?: string): Promise<{ html: string; linkCount: number }> {
-  if (!html || !people?.length) return { html, linkCount: 0 };
+  console.log(`[transformHtmlWithPersonLinks] 🔗 Starting transformation`)
+  console.log(`[transformHtmlWithPersonLinks] Input HTML length: ${html?.length || 0}`)
+  console.log(`[transformHtmlWithPersonLinks] People to link: ${people?.length || 0}`)
+  console.log(`[transformHtmlWithPersonLinks] People: ${people?.map(p => p.name).join(', ') || 'none'}`)
+  
+  if (!html || !people?.length) {
+    console.log(`[transformHtmlWithPersonLinks] ⚠️  Early return: html=${!!html}, people.length=${people?.length || 0}`)
+    return { html, linkCount: 0 };
+  }
 
   // Sort longest first so "Fetty Wap" links before "Fetty"
   const sorted = [...people]
     .filter(p => p?.name && p?.slug)
     .sort((a, b) => b.name.length - a.name.length);
+  
+  console.log(`[transformHtmlWithPersonLinks] Sorted people: ${sorted.length}`)
 
   // Get canonical slugs for all people upfront
   const { getCanonicalSlug } = await import('./entityCanonical')
@@ -40,6 +50,8 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
       canonicalSlug: getCanonicalSlug(person.slug),
     }))
   )
+  
+  console.log(`[transformHtmlWithPersonLinks] People with canonical slugs: ${peopleWithCanonical.map(p => `${p.name} → ${p.canonicalSlug}`).join(', ')}`)
 
   let linkCount = 0;
 
@@ -70,13 +82,22 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
           const href = articleSlug 
             ? `/${person.canonicalSlug}?from=${encodeURIComponent(articleSlug)}`
             : `/${person.canonicalSlug}`;
-          return `<a class="person-link" href="${href}">${match}</a>`;
+          const linkHtml = `<a class="person-link" href="${href}">${match}</a>`;
+          console.log(`[transformHtmlWithPersonLinks] ✅ Linked "${match}" → ${href}`)
+          return linkHtml;
         });
       }
 
       return out;
     })
     .join("");
+
+  console.log(`[transformHtmlWithPersonLinks] ✅ Transformation complete`)
+  console.log(`[transformHtmlWithPersonLinks] Links added: ${linkCount}`)
+  console.log(`[transformHtmlWithPersonLinks] Output HTML length: ${transformed.length}`)
+  console.log(`[transformHtmlWithPersonLinks] Contains person-link class: ${transformed.includes('person-link')}`)
+  console.log(`[transformHtmlWithPersonLinks] Person-link count: ${(transformed.match(/class="person-link"/g) || []).length}`)
+  console.log(`[transformHtmlWithPersonLinks] Output preview (first 500 chars):`, transformed.substring(0, 500))
 
   return { html: transformed, linkCount };
 }
