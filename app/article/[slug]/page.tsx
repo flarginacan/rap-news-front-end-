@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import ArticleFeed from '@/components/ArticleFeed'
@@ -6,6 +7,91 @@ import { fetchWordPressPostBySlug } from '@/lib/wordpress'
 
 // Enable ISR - pages will revalidate every 60 seconds
 export const revalidate = 60
+
+// Generate dynamic SEO metadata for each article
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const article = await fetchWordPressPostBySlug(params.slug)
+  
+  if (!article) {
+    return {
+      title: 'Article Not Found',
+    }
+  }
+
+  // Strip HTML from title
+  const cleanTitle = article.title.replace(/<[^>]*>/g, '').trim()
+  
+  // Create SEO-optimized title (max 60 chars for best results)
+  const seoTitle = cleanTitle.length > 60 
+    ? `${cleanTitle.substring(0, 57)}... | RAP NEWS`
+    : `${cleanTitle} | RAP NEWS`
+
+  // Generate meta description from article content or excerpt
+  // Strip HTML and get first 155 characters
+  const plainText = article.content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 155)
+  
+  const metaDescription = plainText.endsWith('.') 
+    ? plainText 
+    : `${plainText}...`
+
+  // Get article image
+  const imageUrl = article.image || 'https://rapnews.com/og-image.jpg'
+  
+  // Extract keywords from title and category
+  const keywords = [
+    'hip hop news',
+    'rap news',
+    cleanTitle.toLowerCase(),
+    article.category.toLowerCase(),
+  ].filter(Boolean)
+
+  return {
+    title: seoTitle,
+    description: metaDescription,
+    keywords,
+    authors: [{ name: 'RAP NEWS' }],
+    openGraph: {
+      type: 'article',
+      title: cleanTitle,
+      description: metaDescription,
+      url: `https://rapnews.com/article/${params.slug}`,
+      siteName: 'RAP NEWS',
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: cleanTitle,
+        },
+      ],
+      publishedTime: article.rawDate || new Date().toISOString(),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: cleanTitle,
+      description: metaDescription,
+      images: [imageUrl],
+    },
+    alternates: {
+      canonical: `https://rapnews.com/article/${params.slug}`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+  }
+}
 
 // Optional: Pre-generate some recent posts for faster initial load
 // But allow dynamic rendering for new posts via fallback
@@ -85,8 +171,39 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     const hasPersonLinks = article.content.includes('person-link')
     const personLinkCount = (article.content.match(/class="person-link"/g) || []).length
 
+    // Generate structured data (JSON-LD) for SEO
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      headline: article.title.replace(/<[^>]*>/g, ''),
+      description: article.content.replace(/<[^>]*>/g, ' ').substring(0, 200),
+      image: article.image || 'https://rapnews.com/og-image.jpg',
+      datePublished: article.rawDate || new Date().toISOString(),
+      dateModified: article.rawDate || new Date().toISOString(),
+      author: {
+        '@type': 'Organization',
+        name: 'RAP NEWS',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'RAP NEWS',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://rapnews.com/favicon-96x96.png',
+        },
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': `https://rapnews.com/article/${article.slug}`,
+      },
+    }
+
     return (
       <div className="bg-white">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <Header />
         <main className="pt-16 md:pt-24 bg-white">
           <div className="max-w-4xl mx-auto">
