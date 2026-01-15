@@ -53,21 +53,33 @@
   }
   
   /* Person link styling - underlined and clickable in article content */
+  /* Use very specific selectors to override any conflicting styles */
+  .article-content a.person-link,
   .article-content .person-link,
-  .article-content a.person-link {
+  .article-content p a.person-link,
+  .article-content p .person-link,
+  .article-content div a.person-link,
+  .article-content div .person-link {
     text-decoration: underline !important;
-    text-underline-offset: 3px;
-    text-decoration-thickness: 1px;
-    cursor: pointer;
+    text-decoration-line: underline !important;
+    text-decoration-style: solid !important;
+    text-underline-offset: 3px !important;
+    text-decoration-thickness: 1.5px !important;
+    text-decoration-color: #dc2626 !important;
+    cursor: pointer !important;
     color: #dc2626 !important; /* red-600 */
     pointer-events: auto !important;
-    font-weight: 500;
+    font-weight: 500 !important;
   }
   
+  .article-content a.person-link:hover,
   .article-content .person-link:hover,
-  .article-content a.person-link:hover {
-    opacity: 0.8;
+  .article-content p a.person-link:hover,
+  .article-content p .person-link:hover {
+    opacity: 0.8 !important;
     text-decoration: underline !important;
+    text-decoration-line: underline !important;
+    text-decoration-color: #dc2626 !important;
   }
   
   /* Ensure person-link is NOT underlined or red in titles/headers */
