@@ -126,32 +126,24 @@
     @apply my-8 border-gray-200;
   }
   
-  /* CRITICAL: Getty credit must ALWAYS be visible - unkillable */
+  /* CRITICAL: Getty credit must ALWAYS be visible */
   .getty-credit {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
+    display: block;
+    text-align: center;
     margin-top: 8px;
     margin-bottom: 16px;
     font-size: 11px;
-    line-height: 1.35;
-    color: rgba(255,255,255,0.9) !important;
-    background: rgba(0,0,0,0.55) !important;
-    border-radius: 8px;
-    visibility: visible !important;
-    opacity: 1 !important;
+    color: #666;
+    line-height: 1.4;
   }
   
   .getty-credit a {
-    color: rgba(255,255,255,0.9) !important;
-    text-decoration: none !important;
+    color: #666;
+    text-decoration: none;
   }
   
   .getty-credit a:hover {
-    text-decoration: underline !important;
+    text-decoration: underline;
   }
   
   /* --- Getty embed styling --- */
@@ -205,17 +197,12 @@
     max-height: 500px !important;  /* Constrain max height */
     border: 0 !important;
     display: block !important;
-    background: white !important;  /* White background instead of black */
-    /* Clip bottom portion where black padding appears (60-80px typically) - only clip iframe, not container */
-    clip-path: inset(0 0 80px 0) !important;
-    -webkit-clip-path: inset(0 0 80px 0) !important;
+    background: transparent !important;
   }
   
-  /* Clip black bars by using overflow hidden - but don't clip container to preserve credits bar */
+  /* Let iframe size naturally based on actual image dimensions */
   .getty-embed-wrap {
-    overflow: hidden !important;  /* Clip any black bars */
-    position: relative;
-    /* Don't clip container - only clip the iframe itself to preserve credits bar below */
+    overflow: visible !important;  /* Don't clip - let image show naturally */
   }
 
   @media (max-width: 640px) {
@@ -247,8 +234,11 @@
     display: block !important;
   }
 
-  /* Show Getty credit bar - it should be visible below the image */
-  /* (Previously hidden, but user wants credits bar visible) */
+  /* Hide extra Getty credit text under the embed (we already have credit in the image bar) */
+  .getty-credit,
+  .getty-credit * {
+    display: none !important;
+  }
 
   /* --- Getty embed: desktop-only fix (keep mobile as-is) --- */
   @media (min-width: 1024px) {
