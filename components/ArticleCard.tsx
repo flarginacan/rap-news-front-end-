@@ -470,7 +470,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           const clipAmount = rect.height - expectedMaxHeight;
           // Clip bottom portion where black bar appears
           container.style.clipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
-          container.style.webkitClipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
+          container.style.setProperty('-webkit-clip-path', `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`);
           container.style.maxHeight = `${expectedMaxHeight}px`;
           container.style.overflow = 'hidden';
           iframe.style.maxHeight = `${expectedMaxHeight}px`;
