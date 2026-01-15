@@ -126,9 +126,11 @@
     @apply my-8 border-gray-200;
   }
   
-  /* CRITICAL: Getty credit must ALWAYS be visible */
+  /* CRITICAL: Getty credit must ALWAYS be visible - unkillable */
   .getty-credit {
-    display: block;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     text-align: center;
     margin-top: 8px;
     margin-bottom: 16px;
@@ -138,12 +140,12 @@
   }
   
   .getty-credit a {
-    color: #666;
-    text-decoration: none;
+    color: #666 !important;
+    text-decoration: none !important;
   }
   
   .getty-credit a:hover {
-    text-decoration: underline;
+    text-decoration: underline !important;
   }
   
   /* --- Getty embed styling --- */

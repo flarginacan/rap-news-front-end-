@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
+import GettyCreditBar from './GettyCreditBar'
 import ShareButton from './ShareButton'
 
 interface ArticleCardProps {
@@ -341,15 +342,27 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     })
   }, [contentHtml])
   
-  // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)
-  const hasGettyImageInContent = contentHtml.includes('getty-embed-wrap') || 
-                                  contentHtml.includes('embed.gettyimages.com') ||
-                                  contentHtml.includes('gie-single') ||
-                                  contentHtml.includes('gettyimages.com');
+  // Use server-side extracted Getty fields (robust, Cheerio-based)
+  const hasGetty = Boolean(article.gettyWidgetConfig?.items?.length || article.hasGettyEmbed || article.gettyEmbedHtml);
+  const creditText = article.gettyCreditText;
+  const assetUrl = article.gettyAssetUrl;
+  const assetId = article.gettyAssetId;
+  const gettyEmbedHtml = article.gettyEmbedHtml;
   
-  // Extract Getty Images embed from content if present (including credit div)
-  let gettyImageHtml = '';
-  let contentWithoutGetty = contentHtml;
+  // DEV logging
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[GettyCreditRender]", {
+      hasGetty,
+      creditText: (creditText || "").slice(0, 80),
+      assetId,
+      assetUrl,
+      hasWidgetItems: !!article.gettyWidgetConfig?.items?.length,
+      hasEmbedHtml: !!article.gettyEmbedHtml,
+    });
+  }
+  
+  // For backward compatibility: if gettyEmbedHtml exists, use it for rendering
+  const gettyImageHtml = gettyEmbedHtml || '';
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
   // Handle clicks on Getty images - copy article link instead of navigating
@@ -528,99 +541,6 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     };
   }, [gettyImageHtml, article.slug]);
   
-  // Extract Getty credits div separately so we can render it even when using GettyWidgetEmbed
-  let gettyCreditsHtml = '';
-  
-  // DEBUG: Log content to see what we're working with
-  if (hasGettyImageInContent && typeof window !== 'undefined') {
-    console.log('[Getty Credits Debug] Content HTML length:', contentHtml.length);
-    console.log('[Getty Credits Debug] Content contains "getty-credit":', contentHtml.includes('getty-credit'));
-    console.log('[Getty Credits Debug] Content contains "Getty Images":', contentHtml.includes('Getty Images'));
-    console.log('[Getty Credits Debug] Content contains "Photo by":', contentHtml.includes('Photo by'));
-  }
-  
-  if (hasGettyImageInContent) {
-    // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
-    // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
-    const newFormatMatch = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>)?/i);
-    
-    // Pattern 2: Also try matching with class attribute
-    const classMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
-    
-    // Pattern 3: Match credit div separately (with or without getty-credit class, but contains Getty Images/Photo by text)
-    // Try to find credit div that appears after getty-embed-wrap
-    const creditAfterEmbed = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)/i);
-    const creditMatch = creditAfterEmbed ? creditAfterEmbed[1] : contentHtml.match(/<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>/i)?.[0];
-    
-    // Pattern 4: Old format - gie-single div with scripts
-    const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
-    
-    if (newFormatMatch) {
-      // New format: getty-embed-wrap + credit div
-      gettyImageHtml = newFormatMatch[0];
-      // Extract credits div separately
-      const creditDivMatch = newFormatMatch[0].match(/<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>/i);
-      if (creditDivMatch) {
-        gettyCreditsHtml = creditDivMatch[0];
-        if (typeof window !== 'undefined') {
-          console.log('[Getty Credits Debug] Found credits in newFormatMatch:', gettyCreditsHtml.substring(0, 200));
-        }
-      } else {
-        if (typeof window !== 'undefined') {
-          console.log('[Getty Credits Debug] No credits found in newFormatMatch, full match:', newFormatMatch[0].substring(0, 500));
-        }
-      }
-      // Remove it from content (including credit div) - escape special chars and remove all instances
-      const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
-    } else if (classMatch) {
-      // Class-based match: getty-embed-wrap (any format)
-      gettyImageHtml = classMatch[0];
-      // Extract credits div separately
-      const creditDivMatch = classMatch[0].match(/<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>/i);
-      if (creditDivMatch) {
-        gettyCreditsHtml = creditDivMatch[0];
-      }
-      const escapedMatch = classMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
-    } else if (creditMatch) {
-      // Found credit div separately - extract it
-      gettyCreditsHtml = typeof creditMatch === 'string' ? creditMatch : creditMatch[0];
-      // Remove credit div from content
-      const escapedCredit = gettyCreditsHtml.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      contentWithoutGetty = contentHtml.replace(new RegExp(escapedCredit, 'gi'), '').trim();
-    }
-    
-    // If we still don't have credits, try to find any div with Getty credit text near the embed
-    if (!gettyCreditsHtml && (newFormatMatch || classMatch || oldFormatMatch)) {
-      // Look for credit div that appears after getty-embed-wrap or gie-single
-      const creditAfterEmbed = contentHtml.match(/(?:getty-embed-wrap|gie-single)[\s\S]*?<\/div>\s*(<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)/i);
-      if (creditAfterEmbed && creditAfterEmbed[1]) {
-        gettyCreditsHtml = creditAfterEmbed[1];
-        // Remove credit div from content
-        const escapedCredit = gettyCreditsHtml.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        contentWithoutGetty = contentWithoutGetty.replace(new RegExp(escapedCredit, 'gi'), '').trim();
-      }
-    }
-    
-    // Also check for credits in old format matches
-    if (oldFormatMatch && !gettyCreditsHtml) {
-      // Old format: gie-single with scripts
-      const divEnd = oldFormatMatch.index! + oldFormatMatch[0].length;
-      const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
-      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
-      if (scriptMatch) {
-        // CRITICAL: Remove inline scripts that contain window.gie - they conflict with React component
-        const cleanScripts = scriptMatch.filter(script => !script.match(/(?:window\.gie|gie\.widgets|gie\(function)/i))
-        gettyImageHtml = oldFormatMatch[0] + cleanScripts.join('');
-      } else {
-        gettyImageHtml = oldFormatMatch[0];
-      }
-      // Remove it from content (including scripts)
-      contentWithoutGetty = contentHtml.replace(gettyImageHtml, '').trim();
-    }
-  }
-  
   // NOTE: Script execution removed - GlobalGettyLoader handles widgets.js loading
   // All inline scripts with window.gie are removed in wordpress.ts before rendering
   // No need to execute scripts here as they would conflict with React component management
@@ -682,37 +602,31 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               items={article.gettyWidgetConfig.items}
             />
           </div>
-          {/* CRITICAL: Always show Getty credits bar for legal compliance */}
-          {gettyCreditsHtml ? (
-            <div 
-              className="mb-6 md:mb-8"
-              dangerouslySetInnerHTML={{ __html: gettyCreditsHtml }}
-            />
-          ) : (
-            // DEBUG: Show warning if credits not found
-            typeof window !== 'undefined' && console.warn('[Getty Credits Debug] gettyCreditsHtml is empty! gettyWidgetConfig.items:', article.gettyWidgetConfig?.items)
-          )}
+          <GettyCreditBar hasGetty={hasGetty} creditText={creditText} assetUrl={assetUrl} assetId={assetId} />
         </>
       ) : gettyImageHtml ? (
-        <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
-          <div 
-            ref={gettyImageRef}
-            dangerouslySetInnerHTML={{ 
-              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
-                // Remove any script containing gie-related code
-                if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
-                  return '';
-                }
-                return match;
-              })
-            }}
-          />
-        </div>
+        <>
+          <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
+            <div 
+              ref={gettyImageRef}
+              dangerouslySetInnerHTML={{ 
+                __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+                  // Remove any script containing gie-related code
+                  if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+                    return '';
+                  }
+                  return match;
+                })
+              }}
+            />
+          </div>
+          <GettyCreditBar hasGetty={hasGetty} creditText={creditText} assetUrl={assetUrl} assetId={assetId} />
+        </>
       ) : null}
       
       {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
       {/* Fix mobile white space: mt-0 on mobile to prevent double spacing */}
-      {!article.gettyWidgetConfig?.items && !gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
+      {!hasGetty && article.image && article.image.trim() !== '' && (
         <div className={showLink ? 'px-4 md:px-0' : 'px-0 md:px-4'}>
           <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? 'mt-0 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
             <img
@@ -752,7 +666,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
         ) : (
           <div 
@@ -762,7 +676,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: injectFromIntoEntityLinks(contentWithoutGetty, article.slug) }}
+            dangerouslySetInnerHTML={{ __html: injectFromIntoEntityLinks(contentHtml, article.slug) }}
           />
         )}
       </div>

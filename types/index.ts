@@ -18,6 +18,12 @@ export interface Article {
     h?: string;
     caption?: boolean;
   }; // Widget config extracted from oEmbed (for manual widgets.load() call)
+  // New Getty extraction fields (server-side, robust)
+  gettyEmbedHtml?: string;   // embed wrapper / iframe html OR gie-single anchor html
+  gettyCreditText?: string;  // plain text like "Photo by X/Getty Images"
+  gettyAssetUrl?: string;    // link to Getty detail page if detectable
+  gettyAssetId?: string;     // numeric id if detectable
+  hasGettyEmbed?: boolean;
 }
 
 export interface ArticlesResponse {
