@@ -531,6 +531,14 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   // Extract Getty credits div separately so we can render it even when using GettyWidgetEmbed
   let gettyCreditsHtml = '';
   
+  // DEBUG: Log content to see what we're working with
+  if (hasGettyImageInContent && typeof window !== 'undefined') {
+    console.log('[Getty Credits Debug] Content HTML length:', contentHtml.length);
+    console.log('[Getty Credits Debug] Content contains "getty-credit":', contentHtml.includes('getty-credit'));
+    console.log('[Getty Credits Debug] Content contains "Getty Images":', contentHtml.includes('Getty Images'));
+    console.log('[Getty Credits Debug] Content contains "Photo by":', contentHtml.includes('Photo by'));
+  }
+  
   if (hasGettyImageInContent) {
     // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
     // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
@@ -554,6 +562,13 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       const creditDivMatch = newFormatMatch[0].match(/<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>/i);
       if (creditDivMatch) {
         gettyCreditsHtml = creditDivMatch[0];
+        if (typeof window !== 'undefined') {
+          console.log('[Getty Credits Debug] Found credits in newFormatMatch:', gettyCreditsHtml.substring(0, 200));
+        }
+      } else {
+        if (typeof window !== 'undefined') {
+          console.log('[Getty Credits Debug] No credits found in newFormatMatch, full match:', newFormatMatch[0].substring(0, 500));
+        }
       }
       // Remove it from content (including credit div) - escape special chars and remove all instances
       const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -668,11 +683,14 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             />
           </div>
           {/* CRITICAL: Always show Getty credits bar for legal compliance */}
-          {gettyCreditsHtml && (
+          {gettyCreditsHtml ? (
             <div 
               className="mb-6 md:mb-8"
               dangerouslySetInnerHTML={{ __html: gettyCreditsHtml }}
             />
+          ) : (
+            // DEBUG: Show warning if credits not found
+            typeof window !== 'undefined' && console.warn('[Getty Credits Debug] gettyCreditsHtml is empty! gettyWidgetConfig.items:', article.gettyWidgetConfig?.items)
           )}
         </>
       ) : gettyImageHtml ? (
