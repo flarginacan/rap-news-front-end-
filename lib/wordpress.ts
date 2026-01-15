@@ -385,7 +385,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   
   // Pattern 1: New format - getty-embed-wrap div with iframe inside (MOST COMMON NOW)
   const iframePattern = /<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi
-  let match
+  let match: RegExpExecArray | null
   while ((match = iframePattern.exec(content)) !== null) {
     gettyImageDivs.push(match[0])
   }
@@ -394,7 +394,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   const newFormatPattern = /<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi
   while ((match = newFormatPattern.exec(content)) !== null) {
     // Only add if not already captured by iframe pattern
-    if (!gettyImageDivs.some(div => div.includes(match[0].substring(0, 50)))) {
+    if (!gettyImageDivs.some(div => div.includes(match![0].substring(0, 50)))) {
       gettyImageDivs.push(match[0])
     }
   }
