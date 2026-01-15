@@ -217,20 +217,6 @@ function cleanWordPressContent(html: string): string {
     .replace(/&#8221;/g, '"')
     .replace(/&nbsp;/g, ' ')
   
-  // PERFORMANCE: Add title attributes to iframes for accessibility (fixes Lighthouse warning)
-  // This must happen AFTER decoding HTML entities
-  decoded = decoded.replace(
-    /<iframe([^>]*)>/gi,
-    (match, attrs) => {
-      // Check if title already exists
-      if (attrs.includes('title=')) {
-        return match; // Already has title, don't modify
-      }
-      // Add title attribute for accessibility
-      return `<iframe${attrs} title="Getty Images embed">`;
-    }
-  )
-  
   // If content looks like HTML (has tags), clean it up
   if (decoded.includes('<') && decoded.includes('>')) {
     // STEP 1: Transform Getty embeds to safe placeholders BEFORE sanitizing
@@ -474,17 +460,33 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   }, [gettyImageHtml, article.slug]);
   
   if (hasGettyImageInContent) {
-    // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
-    // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
+    // Match ALL Getty embed formats - iframe format is most common now
+    // Pattern 1: getty-embed-wrap div with iframe inside (MOST COMMON - iframe format)
+    const iframeMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/i);
+    
+    // Pattern 2: getty-embed-wrap div (any content, including iframe)
     const newFormatMatch = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>)?/i);
     
-    // Pattern 2: Also try matching with class attribute
+    // Pattern 3: Also try matching with class attribute
     const classMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
     
-    // Pattern 3: Old format - gie-single div with scripts
+    // Pattern 4: Standalone iframe (no wrapper div)
+    const standaloneIframeMatch = contentHtml.match(/<iframe[^>]*src\s*=\s*["'][^"']*embed\.gettyimages\.com[^"']*["'][^>]*>[\s\S]*?<\/iframe>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/i);
+    
+    // Pattern 5: Old format - gie-single div with scripts
     const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
     
-    if (newFormatMatch) {
+    if (iframeMatch) {
+      // Iframe format: getty-embed-wrap with iframe (MOST COMMON - prioritize this)
+      gettyImageHtml = iframeMatch[0];
+      const escapedMatch = iframeMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
+    } else if (standaloneIframeMatch) {
+      // Standalone iframe (wrap it for consistency)
+      gettyImageHtml = `<div class="getty-embed-wrap">${standaloneIframeMatch[0]}</div>`;
+      const escapedMatch = standaloneIframeMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
+    } else if (newFormatMatch) {
       // New format: getty-embed-wrap + credit div
       gettyImageHtml = newFormatMatch[0];
       // Remove it from content (including credit div) - escape special chars and remove all instances

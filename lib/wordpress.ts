@@ -1,6 +1,4 @@
 import { Article } from '@/types'
-import { extractGettyFromWpContent } from "@/lib/gettyExtract";
-import { fetchGettyOEmbedByUrl } from "@/lib/gettyOembed";
 
 // WordPress API configuration
 // Use direct Bluehost URL to bypass Vercel security checkpoint
@@ -176,126 +174,9 @@ export function isLikelyPersonTag(name: string, slug?: string) {
 
 // Convert WordPress post to Article
 export async function convertWordPressPost(post: WordPressPost): Promise<Article> {
-  const rawContent = post.content.rendered || ''
-  
-  // Extract widget config FIRST (before Cheerio extraction, since it needs the original anchor)
-  // Extract anchor element AND widget config from Getty embed
-  let gettyAnchorHtml: string | undefined = undefined
-  let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string; caption?: boolean } | undefined = undefined
-  
-  // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
-  const gieSingleMatch = rawContent.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>([\s\S]{0,2000}?)(?:<\/p>|$)/i)
-  if (gieSingleMatch) {
-    gettyAnchorHtml = gieSingleMatch[0].match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>/i)?.[0] || ''
-    gettyAnchorHtml = gettyAnchorHtml.trim()
-    const widgetId = gieSingleMatch[1]
-    
-    const fullMatchContent = gieSingleMatch[0]
-    const scriptInMatch = fullMatchContent.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
-    const scriptMatch = scriptInMatch || rawContent.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
-    if (scriptMatch) {
-      try {
-        const configContent = scriptMatch[1]
-        const config: any = {}
-        const pairs = configContent.match(/(\w+)\s*:\s*([^,}]+)/g)
-        if (pairs) {
-          pairs.forEach((pair: string) => {
-            const match = pair.match(/(\w+)\s*:\s*(.+)/)
-            if (match) {
-              const key = match[1]
-              let value = match[2].trim()
-              if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-                value = value.slice(1, -1)
-              }
-              if (value === 'true') config[key] = true
-              else if (value === 'false') config[key] = false
-              else if (/^\d+$/.test(value)) config[key] = parseInt(value, 10)
-              else if (/^\d+px$/.test(value)) config[key] = value
-              else config[key] = value
-            }
-          })
-        }
-        
-        if (config.id && config.items) {
-          const finalId = (config.id === widgetId) ? config.id : widgetId
-          gettyWidgetConfig = {
-            id: finalId,
-            sig: config.sig || '',
-            items: String(config.items),
-            w: config.w || '594px',
-            h: config.h || '396px',
-            caption: false
-          }
-          if (config.id !== widgetId) {
-            console.warn(`[convertWordPressPost] Config ID (${config.id}) != Anchor ID (${widgetId}), using anchor ID`)
-          }
-          if (gettyWidgetConfig) {
-            console.log(`[convertWordPressPost] ✅ Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}, items=${gettyWidgetConfig.items}, caption=${gettyWidgetConfig.caption}`)
-          }
-        } else {
-          console.warn(`[convertWordPressPost] ⚠️  Config missing required fields: id=${config.id}, items=${config.items}`)
-        }
-      } catch (e) {
-        console.error(`[convertWordPressPost] ❌ Could not parse widget config: ${e}`)
-        console.error(`[convertWordPressPost] Script match: ${scriptMatch[0]?.substring(0, 200)}`)
-      }
-    } else {
-      console.warn(`[convertWordPressPost] ⚠️  No widget config script found for anchor ID: ${widgetId}`)
-    }
-    
-    if (gettyAnchorHtml) {
-      console.log(`[convertWordPressPost] ✅ Extracted Getty anchor HTML (${gettyAnchorHtml.length} chars), ID: ${widgetId}`)
-    } else {
-      console.error(`[convertWordPressPost] ❌ Failed to extract anchor HTML`)
-    }
-  } else {
-    console.warn(`[convertWordPressPost] ⚠️  No gie-single anchor found in content`)
-  }
-  
-  // NOW extract Getty content using Cheerio (server-side, robust)
-  const extracted = extractGettyFromWpContent(rawContent);
-  
-  // DEV logging
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[GettyExtract]", {
-      hasGetty: extracted.hasGetty,
-      creditLen: extracted.gettyCreditText?.length || 0,
-      assetId: extracted.gettyAssetId,
-      assetUrl: extracted.gettyAssetUrl,
-      embedLen: extracted.gettyEmbedHtml?.length || 0,
-    });
-  }
-  
-  // Enrich credit text from Getty oEmbed if needed
-  let creditText = extracted.gettyCreditText;
-  let assetUrl = extracted.gettyAssetUrl;
-  
-  // If we don't have a real "Photo by .../Getty Images" line, fetch it from Getty oEmbed.
-  const looksIncomplete =
-    !creditText ||
-    creditText.trim().toLowerCase() === "getty images" ||
-    !/photo\s+by|photograph\s+by/i.test(creditText);
-  
-  if (assetUrl && looksIncomplete) {
-    try {
-      const o = await fetchGettyOEmbedByUrl(assetUrl);
-      if (o.creditText) creditText = o.creditText;
-      // optionally store embed html if we want later:
-      // extracted.gettyEmbedHtml = extracted.gettyEmbedHtml || o.embedHtml;
-    } catch (e) {
-      // ignore; fallback remains
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[GettyOEmbed] Failed to fetch:", e);
-      }
-    }
-  }
-  
-  // Use extracted content as base for further processing
-  let content = extracted.contentWithoutGetty;
-  
   // Check if content has Getty embed - if so, NEVER use featured image
-  const hasGettyEmbed = extracted.hasGetty || 
-                        rawContent.includes('getty-embed-wrap') || 
+  const rawContent = post.content.rendered || ''
+  const hasGettyEmbed = rawContent.includes('getty-embed-wrap') || 
                         rawContent.includes('embed.gettyimages.com') ||
                         rawContent.includes('gie-single') ||
                         rawContent.includes('gettyimages.com')
@@ -396,17 +277,167 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
   
-  // NOTE: content is already set to extracted.contentWithoutGetty above
-  // Continue processing the extracted content (Getty already removed by Cheerio)
+  // Preserve Getty Images divs (they contain gettyimages.com URLs)
+  // Remove other images from content (they're already shown at the top via featured image)
+  // CRITICAL: Decode any HTML entities that WordPress might have encoded
+  let content = rawContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
   
   // CRITICAL: Force caption: false in all Getty embed code (replace caption: true)
   content = content.replace(/caption:\s*true/gi, 'caption: false')
   content = content.replace(/caption=true/gi, 'caption=false')
   content = content.replace(/caption:true/gi, 'caption:false')
   
+  // Extract anchor element AND widget config from Getty embed
+  let gettyAnchorHtml: string | undefined = undefined
+  let gettyWidgetConfig: { id: string; sig: string; items: string; w?: string; h?: string; caption?: boolean } | undefined = undefined
+  
+  // Look for gie-single anchor - extract anchor and try to extract config from any nearby script
+  // Match anchor + optional script tags (may have <br /> tags between them)
+  // Updated regex to handle <br /> tags and match scripts that come after the anchor
+  const gieSingleMatch = content.match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>([\s\S]{0,2000}?)(?:<\/p>|$)/i)
+  if (gieSingleMatch) {
+    // Extract just the anchor (remove any scripts and <br /> tags)
+    gettyAnchorHtml = gieSingleMatch[0].match(/<a[^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*gie-single[^"']*["'][^>]*>[\s\S]*?<\/a>/i)?.[0] || ''
+    gettyAnchorHtml = gettyAnchorHtml.trim()
+    const widgetId = gieSingleMatch[1]
+    
+    // Try to find widget config in script tags - search in the full match (includes content after anchor)
+    // Look for gie.widgets.load({...}) pattern
+    const fullMatchContent = gieSingleMatch[0]
+    const scriptInMatch = fullMatchContent.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    // Also search in the broader content context (within 500 chars of the anchor)
+    const scriptMatch = scriptInMatch || content.match(/<script[^>]*>[\s\S]*?gie\.widgets\.load\s*\(\s*\{([^}]+)\}[\s\S]*?<\/script>/i)
+    if (scriptMatch) {
+      try {
+        // Extract the config object content (between { and })
+        const configContent = scriptMatch[1]
+        // Parse key-value pairs, handling both single and double quotes
+        const config: any = {}
+        
+        // Match key:value pairs (handling quotes and numbers)
+        const pairs = configContent.match(/(\w+)\s*:\s*([^,}]+)/g)
+        if (pairs) {
+          pairs.forEach((pair: string) => {
+            const match = pair.match(/(\w+)\s*:\s*(.+)/)
+            if (match) {
+              const key = match[1]
+              let value = match[2].trim()
+              // Remove quotes if present
+              if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1)
+              }
+              // Handle boolean and numeric values
+              if (value === 'true') config[key] = true
+              else if (value === 'false') config[key] = false
+              else if (/^\d+$/.test(value)) config[key] = parseInt(value, 10)
+              else if (/^\d+px$/.test(value)) config[key] = value // Keep '594px' as string
+              else config[key] = value
+            }
+          })
+        }
+        
+        if (config.id && config.items) {
+          // CRITICAL: Use anchor ID as source of truth, but prefer config.id if it matches
+          // If they don't match, use anchor ID (it's what's actually in the DOM)
+          const finalId = (config.id === widgetId) ? config.id : widgetId
+          gettyWidgetConfig = {
+            id: finalId,
+            sig: config.sig || '',
+            items: String(config.items),
+            w: config.w || '594px',
+            h: config.h || '396px',
+            caption: false // CRITICAL: Always disable captions
+          }
+          if (config.id !== widgetId) {
+            console.warn(`[convertWordPressPost] Config ID (${config.id}) != Anchor ID (${widgetId}), using anchor ID`)
+          }
+          if (gettyWidgetConfig) {
+            console.log(`[convertWordPressPost] ✅ Extracted Getty widget config: id=${finalId}, sig=${gettyWidgetConfig.sig ? 'YES' : 'NO'}, items=${gettyWidgetConfig.items}, caption=${gettyWidgetConfig.caption}`)
+          }
+        } else {
+          console.warn(`[convertWordPressPost] ⚠️  Config missing required fields: id=${config.id}, items=${config.items}`)
+        }
+      } catch (e) {
+        console.error(`[convertWordPressPost] ❌ Could not parse widget config: ${e}`)
+        console.error(`[convertWordPressPost] Script match: ${scriptMatch[0]?.substring(0, 200)}`)
+      }
+    } else {
+      console.warn(`[convertWordPressPost] ⚠️  No widget config script found for anchor ID: ${widgetId}`)
+    }
+    
+    if (gettyAnchorHtml) {
+      console.log(`[convertWordPressPost] ✅ Extracted Getty anchor HTML (${gettyAnchorHtml.length} chars), ID: ${widgetId}`)
+    } else {
+      console.error(`[convertWordPressPost] ❌ Failed to extract anchor HTML`)
+    }
+  } else {
+    console.warn(`[convertWordPressPost] ⚠️  No gie-single anchor found in content`)
+  }
+
+  // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
+  // CRITICAL: Preserve ALL Getty embeds - iframe format, widget format, any format
+  const gettyImageDivs: string[] = []
+  
+  // Pattern 1: New format - getty-embed-wrap div with iframe inside (MOST COMMON NOW)
+  const iframePattern = /<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi
+  let match
+  while ((match = iframePattern.exec(content)) !== null) {
+    gettyImageDivs.push(match[0])
+  }
+  
+  // Pattern 2: New format - getty-embed-wrap div followed by credit div (any content inside)
+  const newFormatPattern = /<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi
+  while ((match = newFormatPattern.exec(content)) !== null) {
+    // Only add if not already captured by iframe pattern
+    if (!gettyImageDivs.some(div => div.includes(match[0].substring(0, 50)))) {
+      gettyImageDivs.push(match[0])
+    }
+  }
+  
+  // Pattern 3: Standalone iframe with embed.gettyimages.com (no wrapper div)
+  const standaloneIframePattern = /<iframe[^>]*src\s*=\s*["'][^"']*embed\.gettyimages\.com[^"']*["'][^>]*>[\s\S]*?<\/iframe>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi
+  while ((match = standaloneIframePattern.exec(content)) !== null) {
+    gettyImageDivs.push(match[0])
+  }
+  
+  // Pattern 4: Old format - div with gettyimages.com or gie-single
+  const oldFormatPattern = /<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>/gi
+  while ((match = oldFormatPattern.exec(content)) !== null) {
+    // Also capture any script tags immediately after the div
+    const divEnd = match.index + match[0].length
+    const afterDiv = content.substring(divEnd, divEnd + 500)
+    const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi)
+    if (scriptMatch) {
+      // Include the script tags in the preserved div
+      gettyImageDivs.push(match[0] + scriptMatch.join(''))
+    } else {
+      gettyImageDivs.push(match[0])
+    }
+  }
+  
+  // Remove the Getty Images divs from content temporarily (we'll restore them)
+  // CRITICAL: Match ALL formats - iframe, widget, any Getty embed
+  // Pattern 1: getty-embed-wrap with iframe (most common)
+  content = content.replace(/<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<iframe[^>]*embed\.gettyimages\.com[^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  // Pattern 2: getty-embed-wrap + credit div (any content)
+  content = content.replace(/<div[^>]*class\s*=\s*["']getty-embed-wrap["'][^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  // Pattern 3: Standalone iframe (no wrapper)
+  content = content.replace(/<iframe[^>]*src\s*=\s*["'][^"']*embed\.gettyimages\.com[^"']*["'][^>]*>[\s\S]*?<\/iframe>\s*(?:<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via|Embed from Getty)[\s\S]*?<\/div>)?/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  // Pattern 4: Old format - gie-single anchors (we handle them via React component)
+  content = content.replace(/<a[^>]*class=["'][^"']*\bgie-single\b[^"']*["'][^>]*>[\s\S]*?<\/a>/gi, '')
+  // Pattern 5: Old format - divs with gettyimages.com or gie-single, plus following script tags
+  content = content.replace(/<div[^>]*>[\s\S]*?(?:gettyimages\.com|gie-single)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/gi, '<!-- GETTY_IMAGE_PLACEHOLDER -->')
+  
   // CRITICAL: Remove ALL inline scripts that contain window.gie or gie.widgets
   // These scripts conflict with our React component's management of window.gie
   // We extract the config and handle it in React, so we don't need these scripts
+  // Match ANY script that mentions gie (case insensitive, multiple patterns)
+  // Remove scripts with explicit gie patterns - do multiple passes to catch all variations
   const giePattern1 = /<script[^>]*>[\s\S]*?(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i
   content = content.replace(new RegExp(giePattern1.source + '[\s\S]*?<\/script>', 'gi'), '')
   // Second pass: catch any remaining scripts with gie
@@ -455,8 +486,18 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     content = content.replace(titlePattern, '')
   }
   
-  // NOTE: Getty embeds are now handled via extracted.gettyEmbedHtml (set on article object below)
-  // No need to restore/gettyImageDivs - ArticleCard will use article.gettyEmbedHtml
+  // Restore Getty Images divs at the beginning (before any content)
+  // ArticleCard will extract it and show it at the top, then remove it from content
+  if (gettyImageDivs.length > 0) {
+    // Replace placeholder with the actual Getty Images divs (preserving all classes, styles, and scripts)
+    content = content.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, gettyImageDivs[0])
+    // Remove any remaining placeholders
+    content = content.replace(/<!-- GETTY_IMAGE_PLACEHOLDER -->/g, '')
+    // Insert at the very beginning if not already there
+    if (!content.trim().startsWith('<div')) {
+      content = gettyImageDivs[0] + '\n' + content
+    }
+  }
   content = content.replace(/<p><\/p>/gi, '') // Remove empty paragraphs
   content = content.replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
   
@@ -507,12 +548,6 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     content: content,
     gettyAnchorHtml: gettyAnchorHtml,
     gettyWidgetConfig: gettyWidgetConfig,
-    // New Getty extraction fields (server-side, robust, enriched with oEmbed)
-    gettyEmbedHtml: extracted.gettyEmbedHtml,
-    gettyCreditText: creditText, // Use enriched credit text from oEmbed
-    gettyAssetUrl: assetUrl, // Use normalized asset URL
-    gettyAssetId: extracted.gettyAssetId,
-    hasGettyEmbed: extracted.hasGetty,
   }
 }
 
