@@ -4,6 +4,7 @@ import { entityAllowlist } from '@/lib/entityAllowlist'
 import { getCanonicalSlug } from '@/lib/entityCanonical'
 import { resolveEntityTagGroup } from '@/lib/entityResolve'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 import ArticleFeed from '@/components/ArticleFeed'
 
 export const dynamic = 'force-dynamic'
@@ -93,9 +94,9 @@ export default async function SlugPage({
         // NO rapper name header - just the feed
         // Pass tagIds array directly and pinSlug if provided
         content = (
-          <div className="min-h-screen bg-white">
+          <div className="min-h-screen bg-white flex flex-col">
             <Header />
-            <main className="pt-16 md:pt-20 bg-white">
+            <main className="pt-16 md:pt-20 bg-white flex-grow">
               <div className="max-w-4xl mx-auto">
                 {debug && (
                   <div style={{
@@ -117,6 +118,7 @@ export default async function SlugPage({
                 <ArticleFeed tagIds={tagGroup.tagIds} pinSlug={from} />
               </div>
             </main>
+            <Footer />
           </div>
         )
       } else {
@@ -137,13 +139,14 @@ export default async function SlugPage({
         if (fallbackTag && fallbackTag.count > 0) {
           console.log('[SlugPage] Using fallback tag:', fallbackTag.id)
           content = (
-            <div className="min-h-screen bg-white">
+            <div className="min-h-screen bg-white flex flex-col">
               <Header />
-              <main className="pt-16 md:pt-20 bg-white">
+              <main className="pt-16 md:pt-20 bg-white flex-grow">
                 <div className="max-w-4xl mx-auto">
                   <ArticleFeed tagIds={[fallbackTag.id]} pinSlug={from} />
                 </div>
               </main>
+              <Footer />
             </div>
           )
         }

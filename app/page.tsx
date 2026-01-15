@@ -1,4 +1,5 @@
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 import ArticleFeed from '@/components/ArticleFeed'
 import type { Metadata } from 'next'
 
@@ -33,13 +34,14 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      <main className="pt-16 md:pt-20 bg-white">
+      <main className="pt-16 md:pt-20 bg-white flex-grow">
         <div className="max-w-4xl mx-auto">
           <ArticleFeed />
         </div>
       </main>
+      <Footer />
     </div>
   )
 }

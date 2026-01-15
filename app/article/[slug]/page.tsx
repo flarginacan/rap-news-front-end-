@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 import ArticleCard from '@/components/ArticleCard'
 import ArticleFeed from '@/components/ArticleFeed'
 import { fetchWordPressPostBySlug } from '@/lib/wordpress'
@@ -199,13 +200,13 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     }
 
     return (
-      <div className="bg-white">
+      <div className="bg-white min-h-screen flex flex-col">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <Header />
-        <main className="pt-16 md:pt-24 bg-white">
+        <main className="pt-16 md:pt-24 bg-white flex-grow">
           <div className="max-w-4xl mx-auto">
             {process.env.NODE_ENV === 'development' && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">
@@ -229,6 +230,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             <ArticleFeed excludeSlug={slug} />
           </div>
         </main>
+        <Footer />
       </div>
     )
   } catch (err) {
