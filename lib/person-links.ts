@@ -57,13 +57,20 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
 
   // Split by existing anchor blocks so we don't double-link inside links
   const parts = html.split(/(<a\b[\s\S]*?<\/a>)/gi);
+  
+  console.log(`[transformHtmlWithPersonLinks] 🔍 HTML split into ${parts.length} parts`)
+  console.log(`[transformHtmlWithPersonLinks] 🔍 HTML preview (first 500 chars):`, html.substring(0, 500))
 
   const transformed = parts
-    .map(part => {
+    .map((part, partIndex) => {
       // If this chunk is an existing anchor, return as-is
-      if (/^<a\b/i.test(part)) return part;
+      if (/^<a\b/i.test(part)) {
+        console.log(`[transformHtmlWithPersonLinks] ⏭️  Part ${partIndex}: Skipping existing anchor`)
+        return part;
+      }
 
       let out = part;
+      console.log(`[transformHtmlWithPersonLinks] 🔍 Processing part ${partIndex} (${part.length} chars):`, part.substring(0, 100))
 
       for (const person of peopleWithCanonical) {
         const name = person.name.trim();
@@ -74,7 +81,24 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
         const tokens = name.split(/\s+/).map(escapeRegExp);
         const pattern = `\\b${tokens.join("\\s+")}(?:'s)?\\b`;
         const re = new RegExp(pattern, "g");
+        
+        // Debug: Check if pattern would match
+        const testMatches = out.match(re);
+        console.log(`[transformHtmlWithPersonLinks] 🔍 Searching for "${name}" with pattern: ${pattern}`)
+        console.log(`[transformHtmlWithPersonLinks] 🔍 Test matches found: ${testMatches ? testMatches.length : 0}`)
+        if (testMatches && testMatches.length > 0) {
+          console.log(`[transformHtmlWithPersonLinks] 🔍 Sample matches: ${testMatches.slice(0, 3).join(', ')}`)
+        } else {
+          // Try case-insensitive search to see if name exists with different casing
+          const caseInsensitivePattern = new RegExp(name.replace(/\s+/g, '\\s+'), 'gi');
+          const caseInsensitiveMatches = out.match(caseInsensitivePattern);
+          console.log(`[transformHtmlWithPersonLinks] ⚠️  No matches with word boundaries. Case-insensitive matches: ${caseInsensitiveMatches ? caseInsensitiveMatches.length : 0}`)
+          if (caseInsensitiveMatches && caseInsensitiveMatches.length > 0) {
+            console.log(`[transformHtmlWithPersonLinks] ⚠️  Found with different casing: ${caseInsensitiveMatches.slice(0, 3).join(', ')}`)
+          }
+        }
 
+        const beforeReplace = out;
         out = out.replace(re, (match) => {
           linkCount += 1;
           // Use canonical slug and point to entity page, not /person/
@@ -86,6 +110,10 @@ export async function transformHtmlWithPersonLinks(html: string, people: PersonR
           console.log(`[transformHtmlWithPersonLinks] ✅ Linked "${match}" → ${href}`)
           return linkHtml;
         });
+        
+        if (beforeReplace !== out) {
+          console.log(`[transformHtmlWithPersonLinks] ✅ Successfully replaced "${name}" in this part`)
+        }
       }
 
       return out;
