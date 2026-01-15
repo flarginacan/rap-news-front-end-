@@ -34,10 +34,6 @@
       "destination": "https://tsf.dvj.mybluehost.me/wp-sitemap:path*.xml"
     },
     {
-      "source": "/robots.txt",
-      "destination": "https://tsf.dvj.mybluehost.me/robots.txt"
-    },
-    {
       "source": "/tag/:path*",
       "destination": "https://tsf.dvj.mybluehost.me/tag/:path*"
     },
