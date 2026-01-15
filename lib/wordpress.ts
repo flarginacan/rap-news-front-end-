@@ -426,11 +426,11 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
   content = content.replace(/Rap News/gi, '')
   
   // Clean up WordPress-specific classes and improve formatting
-  // BUT preserve classes and styles inside Getty Images placeholders
+  // BUT preserve classes and styles inside Getty Images placeholders AND person-link classes
   content = content.replace(/class="[^"]*"/gi, (match, offset, string) => {
     // If this is near a Getty placeholder, preserve it
     const context = string.substring(Math.max(0, offset - 200), Math.min(string.length, offset + 200))
-    if (context.includes('GETTY_IMAGE_PLACEHOLDER') || context.includes('gie-single') || context.includes('gettyimages.com')) {
+    if (context.includes('GETTY_IMAGE_PLACEHOLDER') || context.includes('gie-single') || context.includes('gettyimages.com') || context.includes('person-link')) {
       return match
     }
     return ''
