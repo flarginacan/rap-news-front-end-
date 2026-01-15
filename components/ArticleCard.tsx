@@ -528,6 +528,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     };
   }, [gettyImageHtml, article.slug]);
   
+  // Extract Getty credits div separately so we can render it even when using GettyWidgetEmbed
+  let gettyCreditsHtml = '';
+  
   if (hasGettyImageInContent) {
     // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
     // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
@@ -536,21 +539,57 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     // Pattern 2: Also try matching with class attribute
     const classMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
     
-    // Pattern 3: Old format - gie-single div with scripts
+    // Pattern 3: Match credit div separately (with or without getty-credit class, but contains Getty Images/Photo by text)
+    // Try to find credit div that appears after getty-embed-wrap
+    const creditAfterEmbed = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)/i);
+    const creditMatch = creditAfterEmbed ? creditAfterEmbed[1] : contentHtml.match(/<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>/i)?.[0];
+    
+    // Pattern 4: Old format - gie-single div with scripts
     const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
     
     if (newFormatMatch) {
       // New format: getty-embed-wrap + credit div
       gettyImageHtml = newFormatMatch[0];
+      // Extract credits div separately
+      const creditDivMatch = newFormatMatch[0].match(/<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>/i);
+      if (creditDivMatch) {
+        gettyCreditsHtml = creditDivMatch[0];
+      }
       // Remove it from content (including credit div) - escape special chars and remove all instances
       const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
     } else if (classMatch) {
       // Class-based match: getty-embed-wrap (any format)
       gettyImageHtml = classMatch[0];
+      // Extract credits div separately
+      const creditDivMatch = classMatch[0].match(/<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>/i);
+      if (creditDivMatch) {
+        gettyCreditsHtml = creditDivMatch[0];
+      }
       const escapedMatch = classMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
-    } else if (oldFormatMatch) {
+    } else if (creditMatch) {
+      // Found credit div separately - extract it
+      gettyCreditsHtml = typeof creditMatch === 'string' ? creditMatch : creditMatch[0];
+      // Remove credit div from content
+      const escapedCredit = gettyCreditsHtml.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedCredit, 'gi'), '').trim();
+    }
+    
+    // If we still don't have credits, try to find any div with Getty credit text near the embed
+    if (!gettyCreditsHtml && (newFormatMatch || classMatch || oldFormatMatch)) {
+      // Look for credit div that appears after getty-embed-wrap or gie-single
+      const creditAfterEmbed = contentHtml.match(/(?:getty-embed-wrap|gie-single)[\s\S]*?<\/div>\s*(<div[^>]*>[\s\S]*?(?:Getty Images|Photo by|Photo via)[\s\S]*?<\/div>)/i);
+      if (creditAfterEmbed && creditAfterEmbed[1]) {
+        gettyCreditsHtml = creditAfterEmbed[1];
+        // Remove credit div from content
+        const escapedCredit = gettyCreditsHtml.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        contentWithoutGetty = contentWithoutGetty.replace(new RegExp(escapedCredit, 'gi'), '').trim();
+      }
+    }
+    
+    // Also check for credits in old format matches
+    if (oldFormatMatch && !gettyCreditsHtml) {
       // Old format: gie-single with scripts
       const divEnd = oldFormatMatch.index! + oldFormatMatch[0].length;
       const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
@@ -594,39 +633,48 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyWidgetConfig?.items ? (
-        <div 
-          className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
-          style={gettyContainerStyle}
-          onClick={async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const articleUrl = typeof window !== 'undefined' 
-              ? `${window.location.origin}/article/${article.slug}`
-              : `/article/${article.slug}`;
-            try {
-              await navigator.clipboard.writeText(articleUrl);
-              console.log('Article link copied to clipboard');
-            } catch (err) {
-              const textArea = document.createElement('textarea');
-              textArea.value = articleUrl;
-              textArea.style.position = 'fixed';
-              textArea.style.opacity = '0';
-              document.body.appendChild(textArea);
-              textArea.select();
+        <>
+          <div 
+            className={`${!showLink ? 'mt-0 mb-0' : 'mt-0 mb-0'}`} 
+            style={gettyContainerStyle}
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const articleUrl = typeof window !== 'undefined' 
+                ? `${window.location.origin}/article/${article.slug}`
+                : `/article/${article.slug}`;
               try {
-                document.execCommand('copy');
-              } catch (fallbackErr) {
-                console.error('Failed to copy link:', fallbackErr);
+                await navigator.clipboard.writeText(articleUrl);
+                console.log('Article link copied to clipboard');
+              } catch (err) {
+                const textArea = document.createElement('textarea');
+                textArea.value = articleUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                  document.execCommand('copy');
+                } catch (fallbackErr) {
+                  console.error('Failed to copy link:', fallbackErr);
+                }
+                document.body.removeChild(textArea);
               }
-              document.body.removeChild(textArea);
-            }
-            return false;
-          }}
-        >
-          <GettyWidgetEmbed 
-            items={article.gettyWidgetConfig.items}
-          />
-        </div>
+              return false;
+            }}
+          >
+            <GettyWidgetEmbed 
+              items={article.gettyWidgetConfig.items}
+            />
+          </div>
+          {/* CRITICAL: Always show Getty credits bar for legal compliance */}
+          {gettyCreditsHtml && (
+            <div 
+              className="mb-6 md:mb-8"
+              dangerouslySetInnerHTML={{ __html: gettyCreditsHtml }}
+            />
+          )}
+        </>
       ) : gettyImageHtml ? (
         <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
           <div 
