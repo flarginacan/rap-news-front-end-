@@ -197,12 +197,14 @@
     max-height: 500px !important;  /* Constrain max height */
     border: 0 !important;
     display: block !important;
-    background: transparent !important;
+    background: white !important;  /* White background instead of black */
   }
   
-  /* Let iframe size naturally based on actual image dimensions */
+  /* Clip black bars by using overflow hidden */
   .getty-embed-wrap {
-    overflow: visible !important;  /* Don't clip - let image show naturally */
+    overflow: hidden !important;  /* Clip any black bars */
+    position: relative;
+    /* Use aspect ratio from config if available via inline style */
   }
 
   @media (max-width: 640px) {

@@ -430,6 +430,63 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     setTimeout(hideCaptionBar, 1000);
     setTimeout(hideCaptionBar, 3000);
     
+    // Detect and clip black padding by measuring visual content
+    const detectAndClipBlackBars = () => {
+      const iframe = container.querySelector('iframe[src*="embed.gettyimages.com"]') as HTMLIFrameElement;
+      if (!iframe) return;
+      
+      // Use dimensions from config if available to set correct aspect ratio
+      if (article.gettyWidgetConfig?.w && article.gettyWidgetConfig?.h) {
+        const w = parseInt(article.gettyWidgetConfig.w.replace('px', '')) || 594;
+        const h = parseInt(article.gettyWidgetConfig.h.replace('px', '')) || 396;
+        if (w > 0 && h > 0) {
+          const aspectRatio = w / h;
+          
+          // Calculate max height based on container width and aspect ratio
+          const containerWidth = container.getBoundingClientRect().width || container.offsetWidth;
+          const calculatedHeight = containerWidth / aspectRatio;
+          const maxHeight = Math.min(calculatedHeight, 500); // Cap at 500px
+          
+          // Set container to match image aspect ratio to eliminate black bars
+          container.style.aspectRatio = `${w} / ${h}`;
+          container.style.maxHeight = `${maxHeight}px`;
+          iframe.style.aspectRatio = `${w} / ${h}`;
+          iframe.style.maxHeight = `${maxHeight}px`;
+          console.log(`[Getty] Using config dimensions: ${w}x${h}, aspect ratio: ${aspectRatio.toFixed(2)}, max height: ${maxHeight}px`);
+        }
+      }
+      
+      // After iframe loads, try to clip black bars by measuring
+      const measureAndClip = () => {
+        const rect = iframe.getBoundingClientRect();
+        // If iframe is very tall (likely has black bars), clip it
+        // Typical image aspect ratios are 1.3-2.0, so if height is way more than expected, clip
+        const expectedMaxHeight = rect.width / 1.3; // Minimum expected aspect ratio
+        if (rect.height > expectedMaxHeight * 1.2) {
+          // Likely has black bars, clip to expected height
+          container.style.maxHeight = `${expectedMaxHeight}px`;
+          container.style.overflow = 'hidden';
+          iframe.style.maxHeight = `${expectedMaxHeight}px`;
+          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped to ${expectedMaxHeight}px`);
+        }
+      };
+      
+      iframe.addEventListener('load', () => {
+        setTimeout(measureAndClip, 500);
+        setTimeout(measureAndClip, 1500);
+      }, { once: true });
+      
+      // If already loaded
+      if (iframe.complete || iframe.readyState === 'complete') {
+        setTimeout(measureAndClip, 100);
+      }
+    };
+    
+    // Run detection after delays to allow iframe to load
+    setTimeout(detectAndClipBlackBars, 1000);
+    setTimeout(detectAndClipBlackBars, 2000);
+    setTimeout(detectAndClipBlackBars, 3000);
+    
     // Disable all links and images inside Getty container (prevent default navigation)
     const links = container.querySelectorAll('a, img, iframe');
     links.forEach((el) => {
@@ -511,7 +568,16 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {article.gettyWidgetConfig?.items ? (
         <div 
           className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
-          style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden', cursor: 'pointer' }}
+          style={{ 
+            marginTop: 0, 
+            maxHeight: '500px', 
+            overflow: 'hidden', 
+            cursor: 'pointer',
+            // Use actual dimensions from config if available to avoid black bars
+            ...(article.gettyWidgetConfig.w && article.gettyWidgetConfig.h && {
+              aspectRatio: `${parseInt(article.gettyWidgetConfig.w)} / ${parseInt(article.gettyWidgetConfig.h)}`
+            })
+          }}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
