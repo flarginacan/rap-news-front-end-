@@ -316,22 +316,6 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       el.style.paddingBottom = '1px'
       el.style.color = '#dc2626'
     })
-
-    // Optional: show a tiny on-page debug badge at top of article for 1 day, then we can remove it
-    let badge = root.querySelector('#personlink-debug-badge') as HTMLDivElement | null
-    if (!badge) {
-      badge = document.createElement('div')
-      badge.id = 'personlink-debug-badge'
-      badge.style.fontSize = '12px'
-      badge.style.margin = '8px 0'
-      badge.style.padding = '6px 10px'
-      badge.style.border = '1px solid #ddd'
-      badge.style.borderRadius = '8px'
-      badge.style.background = '#fff'
-      badge.style.color = '#111'
-      root.prepend(badge)
-    }
-    badge.textContent = `person-link debug → contentHtml has class: ${htmlHasClass} | DOM nodes: ${links.length}`
   }, [contentHtml])
   
   // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)
