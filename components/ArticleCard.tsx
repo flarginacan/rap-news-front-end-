@@ -354,6 +354,25 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   let contentWithoutGetty = contentHtml;
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
+  // Ensure Getty widgets.js scans for embeds after HTML is rendered
+  useEffect(() => {
+    if (gettyImageHtml && typeof window !== 'undefined' && window.gie?.widgets?.load) {
+      // Wait for DOM to be ready, then trigger re-scan
+      const timer = setTimeout(() => {
+        try {
+          // Re-scan for Getty embeds (widgets.js will find anchors/divs in the HTML)
+          if (typeof window.gie.widgets.load === 'function') {
+            window.gie.widgets.load();
+            console.log('[ArticleCard] Triggered Getty re-scan for HTML embed');
+          }
+        } catch (error) {
+          console.error('[ArticleCard] Error triggering Getty re-scan:', error);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [gettyImageHtml]);
+  
   // Handle clicks on Getty images - copy article link instead of navigating
   // Also hide caption bar on mobile
   useEffect(() => {
