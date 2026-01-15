@@ -459,15 +459,22 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       // After iframe loads, try to clip black bars by measuring
       const measureAndClip = () => {
         const rect = iframe.getBoundingClientRect();
-        // If iframe is very tall (likely has black bars), clip it
-        // Typical image aspect ratios are 1.3-2.0, so if height is way more than expected, clip
+        if (rect.width === 0 || rect.height === 0) return;
+        
+        // Calculate expected height based on typical image aspect ratios (1.3-2.0)
+        // The black bar is typically at the bottom, so we clip that portion
         const expectedMaxHeight = rect.width / 1.3; // Minimum expected aspect ratio
-        if (rect.height > expectedMaxHeight * 1.2) {
-          // Likely has black bars, clip to expected height
+        
+        // If iframe is taller than expected, clip the bottom portion
+        if (rect.height > expectedMaxHeight) {
+          const clipAmount = rect.height - expectedMaxHeight;
+          // Clip bottom portion where black bar appears
+          container.style.clipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
+          container.style.webkitClipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
           container.style.maxHeight = `${expectedMaxHeight}px`;
           container.style.overflow = 'hidden';
           iframe.style.maxHeight = `${expectedMaxHeight}px`;
-          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped to ${expectedMaxHeight}px`);
+          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped ${clipAmount}px from bottom`);
         }
       };
       

@@ -198,13 +198,18 @@
     border: 0 !important;
     display: block !important;
     background: white !important;  /* White background instead of black */
+    /* Clip bottom portion where black bar typically appears (credit bar is ~60-80px) */
+    clip-path: inset(0 0 80px 0) !important;
+    -webkit-clip-path: inset(0 0 80px 0) !important;
   }
   
-  /* Clip black bars by using overflow hidden */
+  /* Clip black bars by using overflow hidden and clipping bottom */
   .getty-embed-wrap {
     overflow: hidden !important;  /* Clip any black bars */
     position: relative;
-    /* Use aspect ratio from config if available via inline style */
+    /* Clip bottom 80px where black credit bar appears */
+    clip-path: inset(0 0 80px 0) !important;
+    -webkit-clip-path: inset(0 0 80px 0) !important;
   }
 
   @media (max-width: 640px) {
