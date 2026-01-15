@@ -1,30 +1,59 @@
 import { MetadataRoute } from 'next'
+import { entityAllowlist } from '@/lib/entityAllowlist'
 
 const WORDPRESS_API_URL = process.env.WORDPRESS_URL 
   ? `${process.env.WORDPRESS_URL}/wp-json/wp/v2`
   : 'https://tsf.dvj.mybluehost.me/wp-json/wp/v2'
 
+// Fetch all posts with pagination
+async function fetchAllPosts(): Promise<Array<{ slug: string; modified: string }>> {
+  const allPosts: Array<{ slug: string; modified: string }> = []
+  let page = 1
+  const perPage = 100
+  let hasMore = true
+
+  while (hasMore) {
+    try {
+      const response = await fetch(
+        `${WORDPRESS_API_URL}/posts?per_page=${perPage}&page=${page}&orderby=date&order=desc&status=publish&_fields=slug,modified`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'rapnews-sitemap-generator/1.0',
+          },
+          next: { revalidate: 3600 } // Revalidate every hour
+        }
+      )
+
+      if (!response.ok) {
+        console.error(`[Sitemap] Failed to fetch posts page ${page}:`, response.status)
+        break
+      }
+
+      const posts = await response.json()
+      
+      if (posts.length === 0) {
+        hasMore = false
+      } else {
+        allPosts.push(...posts.filter((p: any) => p.slug))
+        // If we got fewer than perPage, we're done
+        if (posts.length < perPage) {
+          hasMore = false
+        } else {
+          page++
+        }
+      }
+    } catch (error) {
+      console.error(`[Sitemap] Error fetching posts page ${page}:`, error)
+      hasMore = false
+    }
+  }
+
+  return allPosts
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
-    // Fetch all published posts
-    const postsResponse = await fetch(
-      `${WORDPRESS_API_URL}/posts?per_page=100&orderby=date&order=desc&status=publish&_fields=slug,modified`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'rapnews-sitemap-generator/1.0',
-        },
-        next: { revalidate: 3600 } // Revalidate every hour
-      }
-    )
-
-    if (!postsResponse.ok) {
-      console.error('[Sitemap] Failed to fetch posts:', postsResponse.status)
-      return []
-    }
-
-    const posts = await postsResponse.json()
-
     // Base URL
     const baseUrl = 'https://rapnews.com'
 
@@ -38,16 +67,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     ]
 
+    // Fetch all published posts (with pagination)
+    const posts = await fetchAllPosts()
+
     // Add article pages
     for (const post of posts) {
-      if (post.slug) {
-        routes.push({
-          url: `${baseUrl}/article/${post.slug}`,
-          lastModified: post.modified ? new Date(post.modified) : new Date(),
-          changeFrequency: 'daily',
-          priority: 0.8,
-        })
-      }
+      routes.push({
+        url: `${baseUrl}/article/${post.slug}`,
+        lastModified: post.modified ? new Date(post.modified) : new Date(),
+        changeFrequency: 'daily',
+        priority: 0.8,
+      })
+    }
+
+    // Add entity pages (artist pages like /drake, /kendrick-lamar-2)
+    for (const entitySlug of entityAllowlist) {
+      routes.push({
+        url: `${baseUrl}/${entitySlug}`,
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 0.7,
+      })
     }
 
     return routes
