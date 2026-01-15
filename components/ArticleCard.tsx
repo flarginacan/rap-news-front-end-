@@ -2,11 +2,12 @@
 
 import { Article } from '@/types'
 import Link from 'next/link'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, lazy, Suspense } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
-import GettyWidgetEmbed from './GettyWidgetEmbed'
-import GettyCreditBar from './GettyCreditBar'
-import ShareButton from './ShareButton'
+
+// Lazy load heavy components to reduce initial bundle size
+const GettyWidgetEmbed = lazy(() => import('./GettyWidgetEmbed'))
+const ShareButton = lazy(() => import('./ShareButton'))
 
 interface ArticleCardProps {
   article: Article
@@ -342,28 +343,15 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     })
   }, [contentHtml])
   
-  // Use server-side extracted Getty fields (robust, Cheerio-based)
-  const hasGetty = Boolean(article.gettyWidgetConfig?.items?.length || article.hasGettyEmbed || article.gettyEmbedHtml);
-  const creditText = article.gettyCreditText;
-  const assetUrl = article.gettyAssetUrl;
-  const assetId = article.gettyAssetId;
-  const gettyEmbedHtml = article.gettyEmbedHtml;
+  // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)
+  const hasGettyImageInContent = contentHtml.includes('getty-embed-wrap') || 
+                                  contentHtml.includes('embed.gettyimages.com') ||
+                                  contentHtml.includes('gie-single') ||
+                                  contentHtml.includes('gettyimages.com');
   
-  // DEV logging
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[GettyCreditText]", article.gettyCreditText, article.gettyAssetUrl, article.gettyAssetId);
-    console.log("[GettyCreditRender]", {
-      hasGetty,
-      creditText: (creditText || "").slice(0, 80),
-      assetId,
-      assetUrl,
-      hasWidgetItems: !!article.gettyWidgetConfig?.items?.length,
-      hasEmbedHtml: !!article.gettyEmbedHtml,
-    });
-  }
-  
-  // For backward compatibility: if gettyEmbedHtml exists, use it for rendering
-  const gettyImageHtml = gettyEmbedHtml || '';
+  // Extract Getty Images embed from content if present (including credit div)
+  let gettyImageHtml = '';
+  let contentWithoutGetty = contentHtml;
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
   // Handle clicks on Getty images - copy article link instead of navigating
@@ -444,75 +432,6 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     setTimeout(hideCaptionBar, 1000);
     setTimeout(hideCaptionBar, 3000);
     
-    // Detect and clip black padding by measuring visual content
-    const detectAndClipBlackBars = () => {
-      const iframe = container.querySelector('iframe[src*="embed.gettyimages.com"]') as HTMLIFrameElement;
-      if (!iframe) return;
-      
-      // Use dimensions from config if available to set correct aspect ratio
-      if (article.gettyWidgetConfig?.w && article.gettyWidgetConfig?.h) {
-        const w = parseInt(article.gettyWidgetConfig.w.replace('px', '')) || 594;
-        const h = parseInt(article.gettyWidgetConfig.h.replace('px', '')) || 396;
-        if (w > 0 && h > 0) {
-          const aspectRatio = w / h;
-          
-          // Calculate max height based on container width and aspect ratio
-          const containerWidth = container.getBoundingClientRect().width || container.offsetWidth;
-          const calculatedHeight = containerWidth / aspectRatio;
-          const maxHeight = Math.min(calculatedHeight, 500); // Cap at 500px
-          
-          // Set container to match image aspect ratio to eliminate black bars
-          // Use strict height matching to prevent black padding
-          container.style.aspectRatio = `${w} / ${h}`;
-          container.style.height = `${calculatedHeight}px`;
-          container.style.maxHeight = `${maxHeight}px`;
-          container.style.overflow = 'hidden';
-          iframe.style.aspectRatio = `${w} / ${h}`;
-          iframe.style.height = `${calculatedHeight}px`;
-          iframe.style.maxHeight = `${maxHeight}px`;
-          iframe.style.objectFit = 'cover';
-          console.log(`[Getty] Using config dimensions: ${w}x${h}, aspect ratio: ${aspectRatio.toFixed(2)}, height: ${calculatedHeight}px`);
-        }
-      }
-      
-      // After iframe loads, try to clip black bars by measuring
-      const measureAndClip = () => {
-        const rect = iframe.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        
-        // Calculate expected height based on typical image aspect ratios (1.3-2.0)
-        // The black bar is typically at the bottom, so we clip that portion
-        const expectedMaxHeight = rect.width / 1.3; // Minimum expected aspect ratio
-        
-        // If iframe is taller than expected, clip the bottom portion (only iframe, not container, to preserve credits bar)
-        if (rect.height > expectedMaxHeight) {
-          const clipAmount = rect.height - expectedMaxHeight;
-          // Only clip the iframe itself, not the container, so credits bar below remains visible
-          iframe.style.clipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
-          iframe.style.setProperty('-webkit-clip-path', `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`);
-          iframe.style.height = `${expectedMaxHeight}px`;
-          iframe.style.maxHeight = `${expectedMaxHeight}px`;
-          // Keep container overflow hidden but don't clip it
-          container.style.overflow = 'hidden';
-          console.log(`[Getty] Clipped black bars from iframe: height was ${rect.height}px, clipped ${clipAmount}px from bottom, new height: ${expectedMaxHeight}px`);
-        }
-      };
-      
-      iframe.addEventListener('load', () => {
-        setTimeout(measureAndClip, 500);
-        setTimeout(measureAndClip, 1500);
-      }, { once: true });
-      
-      // Also try to measure after a delay in case iframe loads before listener attaches
-      setTimeout(measureAndClip, 1000);
-      setTimeout(measureAndClip, 2000);
-    };
-    
-    // Run detection after delays to allow iframe to load
-    setTimeout(detectAndClipBlackBars, 1000);
-    setTimeout(detectAndClipBlackBars, 2000);
-    setTimeout(detectAndClipBlackBars, 3000);
-    
     // Disable all links and images inside Getty container (prevent default navigation)
     const links = container.querySelectorAll('a, img, iframe');
     links.forEach((el) => {
@@ -542,25 +461,48 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     };
   }, [gettyImageHtml, article.slug]);
   
+  if (hasGettyImageInContent) {
+    // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
+    // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)
+    const newFormatMatch = contentHtml.match(/<div[^>]*getty-embed-wrap[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*getty-credit[^>]*>[\s\S]*?<\/div>)?/i);
+    
+    // Pattern 2: Also try matching with class attribute
+    const classMatch = contentHtml.match(/<div[^>]*class\s*=\s*["']?[^"']*getty-embed-wrap[^"']*["']?[^>]*>[\s\S]*?<\/div>\s*(?:<div[^>]*class\s*=\s*["']?[^"']*getty-credit[^"']*["']?[^>]*>[\s\S]*?<\/div>)?/i);
+    
+    // Pattern 3: Old format - gie-single div with scripts
+    const oldFormatMatch = contentHtml.match(/<div[^>]*>[\s\S]*?(?:gie-single|gettyimages\.com)[\s\S]*?<\/div>\s*(?:<script[^>]*>[\s\S]*?<\/script>\s*)*/i);
+    
+    if (newFormatMatch) {
+      // New format: getty-embed-wrap + credit div
+      gettyImageHtml = newFormatMatch[0];
+      // Remove it from content (including credit div) - escape special chars and remove all instances
+      const escapedMatch = newFormatMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
+    } else if (classMatch) {
+      // Class-based match: getty-embed-wrap (any format)
+      gettyImageHtml = classMatch[0];
+      const escapedMatch = classMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      contentWithoutGetty = contentHtml.replace(new RegExp(escapedMatch, 'gi'), '').trim();
+    } else if (oldFormatMatch) {
+      // Old format: gie-single with scripts
+      const divEnd = oldFormatMatch.index! + oldFormatMatch[0].length;
+      const afterDiv = contentHtml.substring(divEnd, divEnd + 1000);
+      const scriptMatch = afterDiv.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
+      if (scriptMatch) {
+        // CRITICAL: Remove inline scripts that contain window.gie - they conflict with React component
+        const cleanScripts = scriptMatch.filter(script => !script.match(/(?:window\.gie|gie\.widgets|gie\(function)/i))
+        gettyImageHtml = oldFormatMatch[0] + cleanScripts.join('');
+      } else {
+        gettyImageHtml = oldFormatMatch[0];
+      }
+      // Remove it from content (including scripts)
+      contentWithoutGetty = contentHtml.replace(gettyImageHtml, '').trim();
+    }
+  }
+  
   // NOTE: Script execution removed - GlobalGettyLoader handles widgets.js loading
   // All inline scripts with window.gie are removed in wordpress.ts before rendering
   // No need to execute scripts here as they would conflict with React component management
-
-  // Calculate aspect ratio from config dimensions for Getty container
-  const gettyContainerStyle: React.CSSProperties = {
-    marginTop: 0,
-    maxHeight: '500px',
-    overflow: 'hidden',
-    cursor: 'pointer'
-  };
-  
-  if (article.gettyWidgetConfig?.w && article.gettyWidgetConfig?.h) {
-    const w = parseInt(String(article.gettyWidgetConfig.w).replace('px', '')) || 594;
-    const h = parseInt(String(article.gettyWidgetConfig.h).replace('px', '')) || 396;
-    if (w > 0 && h > 0) {
-      gettyContainerStyle.aspectRatio = `${w} / ${h}`;
-    }
-  }
 
   const articleContent = (
     <>
@@ -569,65 +511,61 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyWidgetConfig?.items ? (
-        <>
-          <div 
-            className={`${!showLink ? 'mt-0 mb-0' : 'mt-0 mb-0'}`} 
-            style={gettyContainerStyle}
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const articleUrl = typeof window !== 'undefined' 
-                ? `${window.location.origin}/article/${article.slug}`
-                : `/article/${article.slug}`;
+        <div 
+          className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
+          style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden', cursor: 'pointer' }}
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const articleUrl = typeof window !== 'undefined' 
+              ? `${window.location.origin}/article/${article.slug}`
+              : `/article/${article.slug}`;
+            try {
+              await navigator.clipboard.writeText(articleUrl);
+              console.log('Article link copied to clipboard');
+            } catch (err) {
+              const textArea = document.createElement('textarea');
+              textArea.value = articleUrl;
+              textArea.style.position = 'fixed';
+              textArea.style.opacity = '0';
+              document.body.appendChild(textArea);
+              textArea.select();
               try {
-                await navigator.clipboard.writeText(articleUrl);
-                console.log('Article link copied to clipboard');
-              } catch (err) {
-                const textArea = document.createElement('textarea');
-                textArea.value = articleUrl;
-                textArea.style.position = 'fixed';
-                textArea.style.opacity = '0';
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                  document.execCommand('copy');
-                } catch (fallbackErr) {
-                  console.error('Failed to copy link:', fallbackErr);
-                }
-                document.body.removeChild(textArea);
+                document.execCommand('copy');
+              } catch (fallbackErr) {
+                console.error('Failed to copy link:', fallbackErr);
               }
-              return false;
-            }}
-          >
+              document.body.removeChild(textArea);
+            }
+            return false;
+          }}
+        >
+          <Suspense fallback={<div className="w-full h-64 bg-gray-100 animate-pulse rounded" />}>
             <GettyWidgetEmbed 
               items={article.gettyWidgetConfig.items}
             />
-          </div>
-          <GettyCreditBar hasGetty={hasGetty} creditText={creditText} assetUrl={assetUrl} assetId={assetId} />
-        </>
+          </Suspense>
+        </div>
       ) : gettyImageHtml ? (
-        <>
-          <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
-            <div 
-              ref={gettyImageRef}
-              dangerouslySetInnerHTML={{ 
-                __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
-                  // Remove any script containing gie-related code
-                  if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
-                    return '';
-                  }
-                  return match;
-                })
-              }}
-            />
-          </div>
-          <GettyCreditBar hasGetty={hasGetty} creditText={creditText} assetUrl={assetUrl} assetId={assetId} />
-        </>
+        <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
+          <div 
+            ref={gettyImageRef}
+            dangerouslySetInnerHTML={{ 
+              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+                // Remove any script containing gie-related code
+                if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+                  return '';
+                }
+                return match;
+              })
+            }}
+          />
+        </div>
       ) : null}
       
       {/* Only show featured image if no Getty Images embed is present AND image URL exists (never show both) */}
       {/* Fix mobile white space: mt-0 on mobile to prevent double spacing */}
-      {!hasGetty && article.image && article.image.trim() !== '' && (
+      {!article.gettyWidgetConfig?.items && !gettyImageHtml && !hasGettyImageInContent && article.image && article.image.trim() !== '' && (
         <div className={showLink ? 'px-4 md:px-0' : 'px-0 md:px-4'}>
           <div className={`relative w-full aspect-video mb-6 md:mb-10 ${!showLink ? 'mt-0 md:mt-6' : 'mt-4 md:mt-6'} overflow-hidden bg-gray-200 ${showLink ? 'rounded-lg md:rounded-xl' : 'md:rounded-lg md:rounded-xl'} shadow-lg`}>
             <img
@@ -656,7 +594,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             {article.comments} comments
           </Link>
           <span className="text-gray-400 hidden sm:inline">•</span>
-          <ShareButton articleSlug={article.slug} articleTitle={article.title} />
+          <Suspense fallback={null}>
+            <ShareButton articleSlug={article.slug} articleTitle={article.title} />
+          </Suspense>
         </div>
         
         {showLink ? (
@@ -667,7 +607,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: contentHtml }}
+            dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
           />
         ) : (
           <div 
@@ -677,7 +617,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: injectFromIntoEntityLinks(contentHtml, article.slug) }}
+            dangerouslySetInnerHTML={{ __html: injectFromIntoEntityLinks(contentWithoutGetty, article.slug) }}
           />
         )}
       </div>
