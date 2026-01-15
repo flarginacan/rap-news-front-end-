@@ -476,10 +476,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         setTimeout(measureAndClip, 1500);
       }, { once: true });
       
-      // If already loaded
-      if (iframe.complete || iframe.readyState === 'complete') {
-        setTimeout(measureAndClip, 100);
-      }
+      // Also try to measure after a delay in case iframe loads before listener attaches
+      setTimeout(measureAndClip, 1000);
+      setTimeout(measureAndClip, 2000);
     };
     
     // Run detection after delays to allow iframe to load
@@ -559,6 +558,22 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   // All inline scripts with window.gie are removed in wordpress.ts before rendering
   // No need to execute scripts here as they would conflict with React component management
 
+  // Calculate aspect ratio from config dimensions for Getty container
+  const gettyContainerStyle: React.CSSProperties = {
+    marginTop: 0,
+    maxHeight: '500px',
+    overflow: 'hidden',
+    cursor: 'pointer'
+  };
+  
+  if (article.gettyWidgetConfig?.w && article.gettyWidgetConfig?.h) {
+    const w = parseInt(String(article.gettyWidgetConfig.w).replace('px', '')) || 594;
+    const h = parseInt(String(article.gettyWidgetConfig.h).replace('px', '')) || 396;
+    if (w > 0 && h > 0) {
+      gettyContainerStyle.aspectRatio = `${w} / ${h}`;
+    }
+  }
+
   const articleContent = (
     <>
       {/* Show Getty Images above title if present */}
@@ -568,16 +583,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {article.gettyWidgetConfig?.items ? (
         <div 
           className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
-          style={{ 
-            marginTop: 0, 
-            maxHeight: '500px', 
-            overflow: 'hidden', 
-            cursor: 'pointer',
-            // Use actual dimensions from config if available to avoid black bars
-            ...(article.gettyWidgetConfig.w && article.gettyWidgetConfig.h && {
-              aspectRatio: `${parseInt(article.gettyWidgetConfig.w)} / ${parseInt(article.gettyWidgetConfig.h)}`
-            })
-          }}
+          style={gettyContainerStyle}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
