@@ -448,11 +448,16 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           const maxHeight = Math.min(calculatedHeight, 500); // Cap at 500px
           
           // Set container to match image aspect ratio to eliminate black bars
+          // Use strict height matching to prevent black padding
           container.style.aspectRatio = `${w} / ${h}`;
+          container.style.height = `${calculatedHeight}px`;
           container.style.maxHeight = `${maxHeight}px`;
+          container.style.overflow = 'hidden';
           iframe.style.aspectRatio = `${w} / ${h}`;
+          iframe.style.height = `${calculatedHeight}px`;
           iframe.style.maxHeight = `${maxHeight}px`;
-          console.log(`[Getty] Using config dimensions: ${w}x${h}, aspect ratio: ${aspectRatio.toFixed(2)}, max height: ${maxHeight}px`);
+          iframe.style.objectFit = 'cover';
+          console.log(`[Getty] Using config dimensions: ${w}x${h}, aspect ratio: ${aspectRatio.toFixed(2)}, height: ${calculatedHeight}px`);
         }
       }
       
@@ -465,16 +470,18 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         // The black bar is typically at the bottom, so we clip that portion
         const expectedMaxHeight = rect.width / 1.3; // Minimum expected aspect ratio
         
-        // If iframe is taller than expected, clip the bottom portion
+        // If iframe is taller than expected, clip the bottom portion more aggressively
         if (rect.height > expectedMaxHeight) {
-          const clipAmount = rect.height - expectedMaxHeight;
+          const clipAmount = Math.max(rect.height - expectedMaxHeight, 120); // At least 120px clip
           // Clip bottom portion where black bar appears
-          container.style.clipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
-          container.style.setProperty('-webkit-clip-path', `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`);
+          container.style.clipPath = `inset(0 0 ${clipAmount}px 0)`;
+          container.style.setProperty('-webkit-clip-path', `inset(0 0 ${clipAmount}px 0)`);
+          container.style.height = `${expectedMaxHeight}px`;
           container.style.maxHeight = `${expectedMaxHeight}px`;
           container.style.overflow = 'hidden';
+          iframe.style.height = `${expectedMaxHeight}px`;
           iframe.style.maxHeight = `${expectedMaxHeight}px`;
-          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped ${clipAmount}px from bottom`);
+          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped ${clipAmount}px from bottom, new height: ${expectedMaxHeight}px`);
         }
       };
       
