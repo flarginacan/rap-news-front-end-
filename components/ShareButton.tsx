@@ -23,6 +23,12 @@ export default function ShareButton({ articleSlug, articleTitle }: ShareButtonPr
     }
   }, [])
 
+  // Detect if user is on mobile device
+  const isMobile = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
   const handleShareClick = () => {
     setShowModal(true)
   }
@@ -86,36 +92,92 @@ export default function ShareButton({ articleSlug, articleTitle }: ShareButtonPr
   }
 
   const handleFacebookShare = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`, '_blank', 'width=550,height=420')
+    if (isMobile()) {
+      // Try to open Facebook app on mobile using deep link
+      const fbAppUrl = `fb://share?href=${encodeURIComponent(articleUrl)}`
+      const fbWebUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`
+      
+      // Create hidden iframe to try app first
+      const iframe = document.createElement('iframe')
+      iframe.style.display = 'none'
+      iframe.src = fbAppUrl
+      document.body.appendChild(iframe)
+      
+      // Fallback to web if app doesn't open
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+        // Try web version as fallback
+        window.open(fbWebUrl, '_blank')
+      }, 500)
+    } else {
+      // Desktop: open web sharer
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`, '_blank', 'width=550,height=420')
+    }
   }
 
   const handleInstagramShare = async () => {
-    // Instagram doesn't support direct web sharing, so we copy the link
-    // Users can paste it in their Instagram app
-    try {
-      await navigator.clipboard.writeText(articleUrl)
-      setCopied(true)
-      setTimeout(() => {
-        setCopied(false)
-      }, 2000)
-    } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea')
-      textArea.value = articleUrl
-      textArea.style.position = 'fixed'
-      textArea.style.left = '-999999px'
-      document.body.appendChild(textArea)
-      textArea.select()
+    if (isMobile()) {
+      // Try to open Instagram app on mobile
+      // Instagram doesn't support direct URL sharing, but we can open the app
+      const instagramAppUrl = `instagram://`
+      const startTime = Date.now()
+      
+      // Try to open Instagram app
+      window.location.href = instagramAppUrl
+      
+      // Also copy the link to clipboard so user can paste it in Instagram
       try {
-        document.execCommand('copy')
+        await navigator.clipboard.writeText(articleUrl)
+        setCopied(true)
+        setTimeout(() => {
+          setCopied(false)
+        }, 3000)
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = articleUrl
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.select()
+        try {
+          document.execCommand('copy')
+          setCopied(true)
+          setTimeout(() => {
+            setCopied(false)
+          }, 3000)
+        } catch (e) {
+          console.error('Failed to copy:', e)
+        }
+        document.body.removeChild(textArea)
+      }
+    } else {
+      // Desktop: just copy the link
+      try {
+        await navigator.clipboard.writeText(articleUrl)
         setCopied(true)
         setTimeout(() => {
           setCopied(false)
         }, 2000)
-      } catch (e) {
-        console.error('Failed to copy:', e)
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = articleUrl
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.select()
+        try {
+          document.execCommand('copy')
+          setCopied(true)
+          setTimeout(() => {
+            setCopied(false)
+          }, 2000)
+        } catch (e) {
+          console.error('Failed to copy:', e)
+        }
+        document.body.removeChild(textArea)
       }
-      document.body.removeChild(textArea)
     }
   }
 
