@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     default: 'Rap News | Latest Hip-Hop News & Breaking Stories',
     template: '%s | RAP NEWS',
   },
-  description: 'Get the latest hip-hop news, rap news, breaking stories, artist updates, and industry news. Stay up to date with your favorite rappers on RAP NEWS.',
+  description: 'Breaking rap news and hip-hop stories as they happen! Get the latest artist updates, album releases, industry news, and exclusive stories. Stay up to date with your favorite rappers.',
   keywords: ['hip hop news', 'rap news', 'hip-hop news', 'breaking rap news', 'hip hop gossip', 'rap rumors', 'album sales', 'hip hop artists', 'rap music news'],
   authors: [{ name: 'RAP NEWS' }],
   creator: 'RAP NEWS',
