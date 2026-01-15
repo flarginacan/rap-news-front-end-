@@ -344,16 +344,54 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   let contentWithoutGetty = contentHtml;
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
-  // Disable clicks on Getty images
+  // Handle clicks on Getty images - copy article link instead of navigating
   useEffect(() => {
     if (!gettyImageRef.current) return;
     
-    // Disable all links and images inside Getty container
-    const links = gettyImageRef.current.querySelectorAll('a, img, iframe');
+    const articleUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/article/${article.slug}`
+      : `/article/${article.slug}`;
+    
+    // Add click handler to the container itself
+    const handleClick = async (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Copy article URL to clipboard
+      try {
+        await navigator.clipboard.writeText(articleUrl);
+        // Optional: Show a brief feedback (you could add a toast here)
+        console.log('Article link copied to clipboard');
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = articleUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          console.log('Article link copied to clipboard (fallback)');
+        } catch (fallbackErr) {
+          console.error('Failed to copy link:', fallbackErr);
+        }
+        document.body.removeChild(textArea);
+      }
+      
+      return false;
+    };
+    
+    const container = gettyImageRef.current;
+    container.addEventListener('click', handleClick);
+    container.style.cursor = 'pointer';
+    
+    // Disable all links and images inside Getty container (prevent default navigation)
+    const links = container.querySelectorAll('a, img, iframe');
     links.forEach((el) => {
       const htmlEl = el as HTMLElement;
-      htmlEl.style.pointerEvents = 'none';
-      htmlEl.style.cursor = 'default';
+      htmlEl.style.pointerEvents = 'none'; // Let clicks bubble to container
+      htmlEl.style.cursor = 'pointer';
       
       // Remove href or prevent navigation
       if (el.tagName === 'A') {
@@ -371,7 +409,11 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         };
       }
     });
-  }, [gettyImageHtml]);
+    
+    return () => {
+      container.removeEventListener('click', handleClick);
+    };
+  }, [gettyImageHtml, article.slug]);
   
   if (hasGettyImageInContent) {
     // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
@@ -423,7 +465,35 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyWidgetConfig?.items ? (
-        <div className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden' }}>
+        <div 
+          className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
+          style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden', cursor: 'pointer' }}
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const articleUrl = typeof window !== 'undefined' 
+              ? `${window.location.origin}/article/${article.slug}`
+              : `/article/${article.slug}`;
+            try {
+              await navigator.clipboard.writeText(articleUrl);
+              console.log('Article link copied to clipboard');
+            } catch (err) {
+              const textArea = document.createElement('textarea');
+              textArea.value = articleUrl;
+              textArea.style.position = 'fixed';
+              textArea.style.opacity = '0';
+              document.body.appendChild(textArea);
+              textArea.select();
+              try {
+                document.execCommand('copy');
+              } catch (fallbackErr) {
+                console.error('Failed to copy link:', fallbackErr);
+              }
+              document.body.removeChild(textArea);
+            }
+            return false;
+          }}
+        >
           <GettyWidgetEmbed 
             items={article.gettyWidgetConfig.items}
           />

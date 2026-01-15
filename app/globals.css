@@ -164,18 +164,20 @@
     isolation: isolate !important;      /* creates a local stacking context */
     background: transparent !important;
     
-    /* Disable all clicks on Getty images */
-    pointer-events: none !important;
+    /* Allow container to receive clicks (for copying article link) */
+    pointer-events: auto !important;
+    cursor: pointer !important;
   }
   
-  /* Disable clicks on all Getty-related links and images */
+  /* Disable clicks on inner Getty elements (clicks will bubble to container) */
   .getty-embed-wrap a,
   .getty-embed-wrap img,
+  .getty-embed-wrap iframe,
   .getty-credit a,
   .gie-single,
   a.gie-single {
     pointer-events: none !important;
-    cursor: default !important;
+    cursor: pointer !important; /* Show pointer since parent handles click */
   }
 
   /* Remove any pseudo-elements that may overlay the iframe */
@@ -189,7 +191,7 @@
   iframe[src*="embed.gettyimages.com"] {
     position: relative !important;
     z-index: 999999 !important;
-    pointer-events: none !important;  /* Disable clicks on iframe */
+    pointer-events: none !important;  /* Disable clicks on iframe (clicks bubble to container) */
     width: 100% !important;
     height: auto !important;
     max-height: 500px !important;  /* Constrain max height to prevent excessive black space */
