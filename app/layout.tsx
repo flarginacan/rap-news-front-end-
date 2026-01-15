@@ -74,6 +74,12 @@ export default function RootLayout({
         {/* FRONTEND_DEPLOY_MARKER: PERSON_LINKS_V1 */}
         {/* Getty widgets.js is now loaded client-side via lib/getty.ts ensureGettyReady() */}
         <link rel="manifest" href="/site.webmanifest" />
+        {/* Performance: Preconnect to external domains */}
+        <link rel="preconnect" href="https://embed-cdn.gettyimages.com" />
+        <link rel="preconnect" href="https://embed.gettyimages.com" />
+        <link rel="dns-prefetch" href="https://embed-cdn.gettyimages.com" />
+        <link rel="dns-prefetch" href="https://embed.gettyimages.com" />
+        <link rel="dns-prefetch" href="https://tsf.dvj.mybluehost.me" />
       </head>
       <body className="bg-white">
         {children}

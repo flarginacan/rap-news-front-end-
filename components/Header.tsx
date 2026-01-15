@@ -16,7 +16,7 @@ export default function Header() {
       </Link>
       
       <button
-        className="text-white p-2 absolute right-4 md:right-8 hover:opacity-80 transition-opacity z-20"
+        className="text-white p-3 absolute right-4 md:right-8 hover:opacity-80 transition-opacity z-20 min-w-[44px] min-h-[44px] flex items-center justify-center"
         aria-label="Search"
         style={{ pointerEvents: 'auto' }}
       >
