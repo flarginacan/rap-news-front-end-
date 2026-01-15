@@ -15,9 +15,12 @@ import { useEffect } from 'react';
  */
 export default function GlobalGettyLoader() {
   useEffect(() => {
-    // GUARD: Clean window.gie if it exists and is not a function
-    // This prevents conflicts from WordPress inline scripts or other sources
-    if (typeof window !== 'undefined') {
+    // DEFER: Wait for page to be interactive before loading Getty scripts
+    // This reduces Total Blocking Time (1,310ms) and improves initial page load
+    const loadGettyScript = () => {
+      // GUARD: Clean window.gie if it exists and is not a function
+      // This prevents conflicts from WordPress inline scripts or other sources
+      if (typeof window === 'undefined') return;
       // CRITICAL: Clean window.gie if it's not a function (before anything else)
       if (window.gie && typeof window.gie !== 'function') {
         console.warn('GlobalGettyLoader: window.gie exists but is not a function, cleaning it')
@@ -65,18 +68,31 @@ export default function GlobalGettyLoader() {
       script.onload = () => {
         console.log('GlobalGettyLoader: widgets.js loaded successfully')
         
-        // After widgets.js loads, re-scan for embeds
+        // After widgets.js loads, re-scan for embeds (defer to avoid blocking)
         if (window.gie && window.gie.widgets && typeof window.gie.widgets.load === 'function') {
-          // Wait a bit for DOM to be ready
-          setTimeout(() => {
-            console.log('GlobalGettyLoader: Re-scanning for Getty embeds')
-            try {
-              window.gie.widgets.load()
-              console.log('GlobalGettyLoader: Re-scan complete')
-            } catch (e) {
-              console.error('GlobalGettyLoader: Error during re-scan:', e)
-            }
-          }, 100)
+          // Use requestIdleCallback to avoid blocking main thread
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+              console.log('GlobalGettyLoader: Re-scanning for Getty embeds')
+              try {
+                window.gie.widgets.load()
+                console.log('GlobalGettyLoader: Re-scan complete')
+              } catch (e) {
+                console.error('GlobalGettyLoader: Error during re-scan:', e)
+              }
+            }, { timeout: 2000 })
+          } else {
+            // Fallback: Wait for next frame
+            setTimeout(() => {
+              console.log('GlobalGettyLoader: Re-scanning for Getty embeds')
+              try {
+                window.gie.widgets.load()
+                console.log('GlobalGettyLoader: Re-scan complete')
+              } catch (e) {
+                console.error('GlobalGettyLoader: Error during re-scan:', e)
+              }
+            }, 100)
+          }
         } else {
           console.warn('GlobalGettyLoader: widgets.load not available after script load')
         }
@@ -103,6 +119,16 @@ export default function GlobalGettyLoader() {
           }
         }, 100)
       }
+    }
+    
+    // Defer loading until after initial render and when browser is idle
+    // This reduces Total Blocking Time significantly
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      // Use requestIdleCallback if available (better for performance)
+      requestIdleCallback(loadGettyScript, { timeout: 2000 })
+    } else {
+      // Fallback: Wait for next frame + small delay
+      setTimeout(loadGettyScript, 100)
     }
   }, [])
 

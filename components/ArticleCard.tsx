@@ -2,12 +2,10 @@
 
 import { Article } from '@/types'
 import Link from 'next/link'
-import { useEffect, useRef, lazy, Suspense } from 'react'
+import { useEffect, useRef } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
-
-// Lazy load ShareButton only (less critical, can load after page render)
-const ShareButton = lazy(() => import('./ShareButton'))
+import ShareButton from './ShareButton'
 
 interface ArticleCardProps {
   article: Article
@@ -208,6 +206,20 @@ function cleanWordPressContent(html: string): string {
   // CRITICAL: Decode HTML entities FIRST - WordPress may have encoded them
   // We need REAL HTML (<div>, <iframe>), not escaped text (&lt;div&gt;)
   let decoded = html
+  
+  // PERFORMANCE: Add title attributes to iframes for accessibility (fixes Lighthouse warning)
+  // This must happen BEFORE any other processing
+  decoded = decoded.replace(
+    /<iframe([^>]*)>/gi,
+    (match, attrs) => {
+      // Check if title already exists
+      if (attrs.includes('title=')) {
+        return match; // Already has title, don't modify
+      }
+      // Add title attribute for accessibility
+      return `<iframe${attrs} title="Getty Images embed">`;
+    }
+  );
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
@@ -353,25 +365,6 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   let gettyImageHtml = '';
   let contentWithoutGetty = contentHtml;
   const gettyImageRef = useRef<HTMLDivElement>(null);
-  
-  // Ensure Getty widgets.js scans for embeds after HTML is rendered
-  useEffect(() => {
-    if (gettyImageHtml && typeof window !== 'undefined' && window.gie?.widgets?.load) {
-      // Wait for DOM to be ready, then trigger re-scan
-      const timer = setTimeout(() => {
-        try {
-          // Re-scan for Getty embeds (widgets.js will find anchors/divs in the HTML)
-          if (typeof window.gie.widgets.load === 'function') {
-            window.gie.widgets.load();
-            console.log('[ArticleCard] Triggered Getty re-scan for HTML embed');
-          }
-        } catch (error) {
-          console.error('[ArticleCard] Error triggering Getty re-scan:', error);
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [gettyImageHtml]);
   
   // Handle clicks on Getty images - copy article link instead of navigating
   // Also hide caption bar on mobile
@@ -611,9 +604,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             {article.comments} comments
           </Link>
           <span className="text-gray-400 hidden sm:inline">•</span>
-          <Suspense fallback={null}>
-            <ShareButton articleSlug={article.slug} articleTitle={article.title} />
-          </Suspense>
+          <ShareButton articleSlug={article.slug} articleTitle={article.title} />
         </div>
         
         {showLink ? (
