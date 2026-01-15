@@ -191,6 +191,10 @@ function transformGettyEmbed(html: string): string {
 }
 
 function cleanWordPressContent(html: string): string {
+  // Debug: Check if person-link exists before cleaning
+  const beforeClean = html.includes('person-link')
+  console.log('🔍 [cleanWordPressContent] Before clean: has person-link?', beforeClean)
+  
   // CRITICAL: Decode HTML entities FIRST - WordPress may have encoded them
   // We need REAL HTML (<div>, <iframe>), not escaped text (&lt;div&gt;)
   let decoded = html
@@ -225,11 +229,12 @@ function cleanWordPressContent(html: string): string {
     let cleaned = transformed;
     
     // Remove WordPress-specific classes and inline styles
-    // BUT preserve getty-embed-wrap and getty-credit classes and styles
+    // BUT preserve getty-embed-wrap, getty-credit, AND person-link classes
     cleaned = cleaned.replace(/class="[^"]*"/gi, (match, offset, string) => {
       const context = string.substring(Math.max(0, offset - 100), Math.min(string.length, offset + 100));
-      if (context.includes('getty-embed-wrap') || context.includes('getty-credit') || context.includes('getty-gie')) {
-        return match; // Preserve Getty classes
+      // Preserve Getty classes AND person-link classes
+      if (context.includes('getty-embed-wrap') || context.includes('getty-credit') || context.includes('getty-gie') || context.includes('person-link')) {
+        return match; // Preserve these classes
       }
       return '';
     });
@@ -269,29 +274,64 @@ function cleanWordPressContent(html: string): string {
       cleaned = cleaned.replace(`__GETTY_SAFE_${i}__`, block);
     });
     
+    // Debug: Check if person-link exists after cleaning
+    const afterClean = cleaned.includes('person-link')
+    console.log('🔍 [cleanWordPressContent] After clean: has person-link?', afterClean)
+    if (beforeClean && !afterClean) {
+      console.error('❌ [cleanWordPressContent] WARNING: person-link was removed during cleaning!')
+    }
+    
     return cleaned.trim()
   }
   // Otherwise, treat as markdown (but still decode entities first)
-  return markdownToHtml(decoded)
+  const markdownResult = markdownToHtml(decoded)
+  const afterMarkdown = markdownResult.includes('person-link')
+  console.log('🔍 [cleanWordPressContent] After markdown: has person-link?', afterMarkdown)
+  return markdownResult
 }
 
 export default function ArticleCard({ article, showLink = true, id }: ArticleCardProps) {
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
-  // Force underline on person-link elements after render
+  // Hard DOM debug + inline enforcement for person-link elements
   useEffect(() => {
-    if (contentRef.current) {
-      const personLinks = contentRef.current.querySelectorAll('.person-link, a.person-link')
-      personLinks.forEach((link) => {
-        const element = link as HTMLElement
-        element.style.textDecoration = 'underline'
-        element.style.textDecorationLine = 'underline'
-        element.style.textDecorationColor = '#dc2626'
-        element.style.textUnderlineOffset = '3px'
-        element.style.textDecorationThickness = '1.5px'
-      })
+    const root = contentRef.current
+    if (!root) {
+      console.log('❌ [person-link debug] contentRef is null')
+      return
     }
+
+    const htmlHasClass = typeof contentHtml === 'string' && contentHtml.includes('person-link')
+    console.log('🔎 [person-link debug] contentHtml includes "person-link"?', htmlHasClass)
+
+    const links = root.querySelectorAll('a.person-link, .person-link')
+    console.log('✅ [person-link debug] DOM nodes found:', links.length)
+
+    links.forEach((node) => {
+      const el = node as HTMLElement
+      // Force reliable underline (border) inline
+      el.style.textDecoration = 'none'
+      el.style.borderBottom = '2px solid #dc2626'
+      el.style.paddingBottom = '1px'
+      el.style.color = '#dc2626'
+    })
+
+    // Optional: show a tiny on-page debug badge at top of article for 1 day, then we can remove it
+    let badge = root.querySelector('#personlink-debug-badge') as HTMLDivElement | null
+    if (!badge) {
+      badge = document.createElement('div')
+      badge.id = 'personlink-debug-badge'
+      badge.style.fontSize = '12px'
+      badge.style.margin = '8px 0'
+      badge.style.padding = '6px 10px'
+      badge.style.border = '1px solid #ddd'
+      badge.style.borderRadius = '8px'
+      badge.style.background = '#fff'
+      badge.style.color = '#111'
+      root.prepend(badge)
+    }
+    badge.textContent = `person-link debug → contentHtml has class: ${htmlHasClass} | DOM nodes: ${links.length}`
   }, [contentHtml])
   
   // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)

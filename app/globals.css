@@ -48,71 +48,44 @@
     @apply font-bold text-black;
   }
   
+  /* Normal article links: red, no underline (hover underline ok) */
   .article-content a {
     @apply text-red-600 no-underline font-medium hover:underline;
   }
   
-  /* Override no-underline for person-link specifically */
-  .article-content a.person-link {
-    text-decoration: underline !important;
-  }
-  
-  /* Person link styling - underlined and clickable in article content */
-  /* Use very specific selectors to override any conflicting styles */
-  /* Universal selector to catch ALL person-link instances */
-  a.person-link,
-  .person-link,
-  .article-content a.person-link,
-  .article-content .person-link,
-  .article-content p a.person-link,
-  .article-content p .person-link,
-  .article-content div a.person-link,
-  .article-content div .person-link,
-  .article-content span a.person-link,
-  .article-content span .person-link,
-  article a.person-link,
-  article .person-link {
-    text-decoration: underline !important;
-    text-decoration-line: underline !important;
-    text-decoration-style: solid !important;
-    text-underline-offset: 3px !important;
-    text-decoration-thickness: 1.5px !important;
-    text-decoration-color: #dc2626 !important;
-    cursor: pointer !important;
-    color: #dc2626 !important; /* red-600 */
-    pointer-events: auto !important;
-    font-weight: 500 !important;
-    border-bottom: none !important; /* Remove any border-bottom that might interfere */
-  }
-  
-  a.person-link:hover,
-  .person-link:hover,
-  .article-content a.person-link:hover,
-  .article-content .person-link:hover,
-  .article-content p a.person-link:hover,
-  .article-content p .person-link:hover {
-    opacity: 0.8 !important;
-    text-decoration: underline !important;
-    text-decoration-line: underline !important;
-    text-decoration-color: #dc2626 !important;
-  }
-  
-  /* Ensure person-link is NOT underlined or red in titles/headers */
+  /* Hard reset: headings/titles should NEVER show person-link styling */
   .article-content h1 .person-link,
   .article-content h2 .person-link,
   .article-content h3 .person-link,
   .article-content h4 .person-link,
   .article-content h5 .person-link,
   .article-content h6 .person-link,
-  h1 .person-link,
-  h2 .person-link,
-  h3 .person-link,
-  h4 .person-link,
-  h5 .person-link,
-  h6 .person-link {
-    text-decoration: none !important;
+  .article-content h1 a.person-link,
+  .article-content h2 a.person-link,
+  .article-content h3 a.person-link,
+  .article-content h4 a.person-link,
+  .article-content h5 a.person-link,
+  .article-content h6 a.person-link {
     color: inherit !important;
-    font-weight: inherit;
+    border-bottom: none !important;
+    text-decoration: none !important;
+  }
+  
+  /* Reliable underline for person links in BODY (border-bottom instead of text-decoration) */
+  .article-content a.person-link,
+  .article-content .person-link a,
+  .article-content .person-link {
+    color: #dc2626 !important;
+    text-decoration: none !important;
+    border-bottom: 2px solid #dc2626 !important;
+    padding-bottom: 1px;
+    cursor: pointer !important;
+  }
+  
+  /* Make sure we're not accidentally removing the border with some reset */
+  .article-content a.person-link:hover,
+  .article-content .person-link:hover {
+    border-bottom: 2px solid #dc2626 !important;
   }
   
   .article-content ul,
