@@ -403,11 +403,16 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       });
       
       // Also hide any divs with "see more" links (part of caption bar)
-      const seeMoreLinks = container.querySelectorAll('a[href*="see"], a:contains("see more")');
-      seeMoreLinks.forEach((link) => {
-        const parent = link.parentElement;
-        if (parent && parent.textContent?.toLowerCase().includes('see more')) {
-          parent.style.display = 'none';
+      const allLinks = container.querySelectorAll('a');
+      allLinks.forEach((link) => {
+        const linkText = link.textContent?.toLowerCase() || '';
+        const href = link.getAttribute('href') || '';
+        // Check if link contains "see more" text or has "see" in href
+        if (linkText.includes('see more') || href.includes('see')) {
+          const parent = link.parentElement;
+          if (parent && parent.textContent?.toLowerCase().includes('see more')) {
+            parent.style.display = 'none';
+          }
         }
       });
     };
