@@ -80,12 +80,14 @@
     border-bottom: 2px solid #dc2626 !important;
     padding-bottom: 1px;
     cursor: pointer !important;
+    font-weight: normal !important;
   }
   
   /* Make sure we're not accidentally removing the border with some reset */
   .article-content a.person-link:hover,
   .article-content .person-link:hover {
     border-bottom: 2px solid #dc2626 !important;
+    font-weight: normal !important;
   }
   
   .article-content ul,

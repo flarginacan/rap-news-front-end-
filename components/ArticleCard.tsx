@@ -310,11 +310,12 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
 
     links.forEach((node) => {
       const el = node as HTMLElement
-      // Force reliable underline (border) inline
+      // Force reliable underline (border) inline and remove bold
       el.style.textDecoration = 'none'
       el.style.borderBottom = '2px solid #dc2626'
       el.style.paddingBottom = '1px'
       el.style.color = '#dc2626'
+      el.style.fontWeight = 'normal'
     })
   }, [contentHtml])
   
