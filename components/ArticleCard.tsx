@@ -4,9 +4,9 @@ import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef, lazy, Suspense } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
+import GettyWidgetEmbed from './GettyWidgetEmbed'
 
-// Lazy load heavy components to reduce initial bundle size
-const GettyWidgetEmbed = lazy(() => import('./GettyWidgetEmbed'))
+// Lazy load ShareButton only (less critical, can load after page render)
 const ShareButton = lazy(() => import('./ShareButton'))
 
 interface ArticleCardProps {
@@ -540,11 +540,9 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             return false;
           }}
         >
-          <Suspense fallback={<div className="w-full h-64 bg-gray-100 animate-pulse rounded" />}>
-            <GettyWidgetEmbed 
-              items={article.gettyWidgetConfig.items}
-            />
-          </Suspense>
+          <GettyWidgetEmbed 
+            items={article.gettyWidgetConfig.items}
+          />
         </div>
       ) : gettyImageHtml ? (
         <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
