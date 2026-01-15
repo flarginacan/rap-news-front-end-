@@ -279,6 +279,21 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
+  // Force underline on person-link elements after render
+  useEffect(() => {
+    if (contentRef.current) {
+      const personLinks = contentRef.current.querySelectorAll('.person-link, a.person-link')
+      personLinks.forEach((link) => {
+        const element = link as HTMLElement
+        element.style.textDecoration = 'underline'
+        element.style.textDecorationLine = 'underline'
+        element.style.textDecorationColor = '#dc2626'
+        element.style.textUnderlineOffset = '3px'
+        element.style.textDecorationThickness = '1.5px'
+      })
+    }
+  }, [contentHtml])
+  
   // Check if content has a Getty Images embed (new format: getty-embed-wrap or old format: gie-single)
   const hasGettyImageInContent = contentHtml.includes('getty-embed-wrap') || 
                                   contentHtml.includes('embed.gettyimages.com') ||
