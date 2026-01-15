@@ -316,6 +316,20 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       el.style.paddingBottom = '1px'
       el.style.color = '#dc2626'
       el.style.fontWeight = 'normal'
+      
+      // Also handle if person-link is inside a strong tag
+      const parentStrong = el.closest('strong')
+      if (parentStrong) {
+        const strongEl = parentStrong as HTMLElement
+        strongEl.style.fontWeight = 'normal'
+      }
+      
+      // Also handle if strong is inside person-link
+      const childStrong = el.querySelector('strong')
+      if (childStrong) {
+        const strongEl = childStrong as HTMLElement
+        strongEl.style.fontWeight = 'normal'
+      }
     })
   }, [contentHtml])
   
