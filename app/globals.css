@@ -52,17 +52,40 @@
     @apply text-red-600 no-underline font-medium hover:underline;
   }
   
-  /* Person link styling - underlined and clickable */
-  .person-link {
+  /* Person link styling - underlined and clickable in article content */
+  .article-content .person-link,
+  .article-content a.person-link {
     text-decoration: underline !important;
-    text-underline-offset: 2px;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
     cursor: pointer;
     color: #dc2626 !important; /* red-600 */
     pointer-events: auto !important;
+    font-weight: 500;
   }
   
-  .person-link:hover {
+  .article-content .person-link:hover,
+  .article-content a.person-link:hover {
     opacity: 0.8;
+    text-decoration: underline !important;
+  }
+  
+  /* Ensure person-link is NOT underlined or red in titles/headers */
+  .article-content h1 .person-link,
+  .article-content h2 .person-link,
+  .article-content h3 .person-link,
+  .article-content h4 .person-link,
+  .article-content h5 .person-link,
+  .article-content h6 .person-link,
+  h1 .person-link,
+  h2 .person-link,
+  h3 .person-link,
+  h4 .person-link,
+  h5 .person-link,
+  h6 .person-link {
+    text-decoration: none !important;
+    color: inherit !important;
+    font-weight: inherit;
   }
   
   .article-content ul,
