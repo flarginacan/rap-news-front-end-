@@ -219,6 +219,21 @@
       width: 100vw;
       margin-left: calc(50% - 50vw);
       margin-right: calc(50% - 50vw);
+      /* Hide caption bar on mobile by clipping top portion */
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Hide caption bar on mobile - clip the top 50px where caption appears */
+    .getty-embed-wrap iframe,
+    iframe[src*="embed.gettyimages.com"] {
+      /* Shift iframe up and clip top portion to hide caption */
+      transform: translateY(-50px);
+      height: calc(100% + 50px);
+      margin-top: -50px;
+      /* Clip the top 50px where caption bar appears */
+      clip-path: inset(50px 0 0 0);
+      -webkit-clip-path: inset(50px 0 0 0);
     }
   }
 

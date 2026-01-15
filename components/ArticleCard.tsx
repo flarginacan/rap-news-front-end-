@@ -345,6 +345,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
   // Handle clicks on Getty images - copy article link instead of navigating
+  // Also hide caption bar on mobile
   useEffect(() => {
     if (!gettyImageRef.current) return;
     
@@ -385,6 +386,36 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
     const container = gettyImageRef.current;
     container.addEventListener('click', handleClick);
     container.style.cursor = 'pointer';
+    
+    // Hide caption bar on mobile - look for elements containing "NEW YORK" or similar caption text
+    const hideCaptionBar = () => {
+      if (window.innerWidth > 640) return; // Only on mobile
+      
+      // Try to find and hide caption elements
+      const allDivs = container.querySelectorAll('div');
+      allDivs.forEach((div) => {
+        const text = div.textContent || '';
+        // Hide divs that contain location/date captions like "NEW YORK" or "MARCH"
+        if (text.match(/NEW YORK|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER/i) && 
+            text.length < 200) { // Caption text is usually short
+          (div as HTMLElement).style.display = 'none';
+        }
+      });
+      
+      // Also hide any divs with "see more" links (part of caption bar)
+      const seeMoreLinks = container.querySelectorAll('a[href*="see"], a:contains("see more")');
+      seeMoreLinks.forEach((link) => {
+        const parent = link.parentElement;
+        if (parent && parent.textContent?.toLowerCase().includes('see more')) {
+          parent.style.display = 'none';
+        }
+      });
+    };
+    
+    // Run immediately and after a delay (in case iframe loads content later)
+    hideCaptionBar();
+    setTimeout(hideCaptionBar, 1000);
+    setTimeout(hideCaptionBar, 3000);
     
     // Disable all links and images inside Getty container (prevent default navigation)
     const links = container.querySelectorAll('a, img, iframe');
