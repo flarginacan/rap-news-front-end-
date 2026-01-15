@@ -51,9 +51,17 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
     <a
       id={anchorId}
       className="gie-single"
-      href={`https://www.gettyimages.com/detail/${items}`}
-      target="_blank"
-      rel="noopener noreferrer"
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }}
       data-items={items}
       data-caption="false"
       data-tld="com"
@@ -65,6 +73,8 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
         fontWeight: "normal",
         border: "none",
         display: "inline-block",
+        cursor: "default",
+        pointerEvents: "none",
       }}
     >
       Embed from Getty Images

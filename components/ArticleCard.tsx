@@ -344,6 +344,35 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
   let contentWithoutGetty = contentHtml;
   const gettyImageRef = useRef<HTMLDivElement>(null);
   
+  // Disable clicks on Getty images
+  useEffect(() => {
+    if (!gettyImageRef.current) return;
+    
+    // Disable all links and images inside Getty container
+    const links = gettyImageRef.current.querySelectorAll('a, img, iframe');
+    links.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.style.pointerEvents = 'none';
+      htmlEl.style.cursor = 'default';
+      
+      // Remove href or prevent navigation
+      if (el.tagName === 'A') {
+        const anchor = el as HTMLAnchorElement;
+        anchor.href = '#';
+        anchor.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        };
+        anchor.onmousedown = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        };
+      }
+    });
+  }, [gettyImageHtml]);
+  
   if (hasGettyImageInContent) {
     // Match the new format: getty-embed-wrap div + credit div, OR old format: gie-single div + scripts
     // Pattern 1: New format - getty-embed-wrap div (match with iframe inside)

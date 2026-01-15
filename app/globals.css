@@ -163,6 +163,19 @@
     /* Stacking context fix - remove overlays and force iframe on top */
     isolation: isolate !important;      /* creates a local stacking context */
     background: transparent !important;
+    
+    /* Disable all clicks on Getty images */
+    pointer-events: none !important;
+  }
+  
+  /* Disable clicks on all Getty-related links and images */
+  .getty-embed-wrap a,
+  .getty-embed-wrap img,
+  .getty-credit a,
+  .gie-single,
+  a.gie-single {
+    pointer-events: none !important;
+    cursor: default !important;
   }
 
   /* Remove any pseudo-elements that may overlay the iframe */
@@ -176,7 +189,7 @@
   iframe[src*="embed.gettyimages.com"] {
     position: relative !important;
     z-index: 999999 !important;
-    pointer-events: auto !important;
+    pointer-events: none !important;  /* Disable clicks on iframe */
     width: 100% !important;
     height: auto !important;
     max-height: 500px !important;  /* Constrain max height to prevent excessive black space */
