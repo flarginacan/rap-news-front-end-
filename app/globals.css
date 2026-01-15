@@ -198,18 +198,16 @@
     border: 0 !important;
     display: block !important;
     background: white !important;  /* White background instead of black */
-    /* Clip bottom portion where black bar typically appears - increased to 120px */
-    clip-path: inset(0 0 120px 0) !important;
-    -webkit-clip-path: inset(0 0 120px 0) !important;
+    /* Clip bottom portion where black padding appears (60-80px typically) - only clip iframe, not container */
+    clip-path: inset(0 0 80px 0) !important;
+    -webkit-clip-path: inset(0 0 80px 0) !important;
   }
   
-  /* Clip black bars by using overflow hidden and clipping bottom */
+  /* Clip black bars by using overflow hidden - but don't clip container to preserve credits bar */
   .getty-embed-wrap {
     overflow: hidden !important;  /* Clip any black bars */
     position: relative;
-    /* Clip bottom 120px where black padding appears */
-    clip-path: inset(0 0 120px 0) !important;
-    -webkit-clip-path: inset(0 0 120px 0) !important;
+    /* Don't clip container - only clip the iframe itself to preserve credits bar below */
   }
 
   @media (max-width: 640px) {
@@ -241,11 +239,8 @@
     display: block !important;
   }
 
-  /* Hide extra Getty credit text under the embed (we already have credit in the image bar) */
-  .getty-credit,
-  .getty-credit * {
-    display: none !important;
-  }
+  /* Show Getty credit bar - it should be visible below the image */
+  /* (Previously hidden, but user wants credits bar visible) */
 
   /* --- Getty embed: desktop-only fix (keep mobile as-is) --- */
   @media (min-width: 1024px) {

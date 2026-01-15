@@ -470,18 +470,17 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         // The black bar is typically at the bottom, so we clip that portion
         const expectedMaxHeight = rect.width / 1.3; // Minimum expected aspect ratio
         
-        // If iframe is taller than expected, clip the bottom portion more aggressively
+        // If iframe is taller than expected, clip the bottom portion (only iframe, not container, to preserve credits bar)
         if (rect.height > expectedMaxHeight) {
-          const clipAmount = Math.max(rect.height - expectedMaxHeight, 120); // At least 120px clip
-          // Clip bottom portion where black bar appears
-          container.style.clipPath = `inset(0 0 ${clipAmount}px 0)`;
-          container.style.setProperty('-webkit-clip-path', `inset(0 0 ${clipAmount}px 0)`);
-          container.style.height = `${expectedMaxHeight}px`;
-          container.style.maxHeight = `${expectedMaxHeight}px`;
-          container.style.overflow = 'hidden';
+          const clipAmount = rect.height - expectedMaxHeight;
+          // Only clip the iframe itself, not the container, so credits bar below remains visible
+          iframe.style.clipPath = `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`;
+          iframe.style.setProperty('-webkit-clip-path', `inset(0 0 ${Math.min(clipAmount, 100)}px 0)`);
           iframe.style.height = `${expectedMaxHeight}px`;
           iframe.style.maxHeight = `${expectedMaxHeight}px`;
-          console.log(`[Getty] Clipped black bars: height was ${rect.height}px, clipped ${clipAmount}px from bottom, new height: ${expectedMaxHeight}px`);
+          // Keep container overflow hidden but don't clip it
+          container.style.overflow = 'hidden';
+          console.log(`[Getty] Clipped black bars from iframe: height was ${rect.height}px, clipped ${clipAmount}px from bottom, new height: ${expectedMaxHeight}px`);
         }
       };
       
