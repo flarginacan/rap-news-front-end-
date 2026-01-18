@@ -206,7 +206,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <Header />
-        <main className="pt-16 md:pt-24 bg-white flex-grow">
+        <main className="pt-16 md:pt-24 bg-white">
           <div className="max-w-4xl mx-auto">
             {process.env.NODE_ENV === 'development' && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4 rounded text-sm">

@@ -36,7 +36,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      <main className="pt-16 md:pt-20 bg-white flex-grow">
+      <main className="pt-16 md:pt-20 bg-white">
         <div className="max-w-4xl mx-auto">
           <ArticleFeed />
         </div>

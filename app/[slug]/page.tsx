@@ -96,7 +96,7 @@ export default async function SlugPage({
         content = (
           <div className="min-h-screen bg-white flex flex-col">
             <Header />
-            <main className="pt-16 md:pt-20 bg-white flex-grow">
+            <main className="pt-16 md:pt-20 bg-white">
               <div className="max-w-4xl mx-auto">
                 {debug && (
                   <div style={{
@@ -141,7 +141,7 @@ export default async function SlugPage({
           content = (
             <div className="min-h-screen bg-white flex flex-col">
               <Header />
-              <main className="pt-16 md:pt-20 bg-white flex-grow">
+              <main className="pt-16 md:pt-20 bg-white">
                 <div className="max-w-4xl mx-auto">
                   <ArticleFeed tagIds={[fallbackTag.id]} pinSlug={from} />
                 </div>
