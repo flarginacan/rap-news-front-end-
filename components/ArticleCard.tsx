@@ -4,6 +4,7 @@ import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
+import { fixIframeEntities } from '@/lib/fixIframeEntities'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
 import ShareButton from './ShareButton'
 
@@ -563,13 +564,15 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
-              __html: gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
-                // Remove any script containing gie-related code
-                if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
-                  return '';
-                }
-                return match;
-              })
+              __html: fixIframeEntities(
+                gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+                  // Remove any script containing gie-related code
+                  if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+                    return '';
+                  }
+                  return match;
+                })
+              )
             }}
           />
         </div>
@@ -617,7 +620,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: contentWithoutGetty }}
+            dangerouslySetInnerHTML={{ __html: fixIframeEntities(contentWithoutGetty) }}
           />
         ) : (
           <div 
@@ -627,7 +630,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: injectFromIntoEntityLinks(contentWithoutGetty, article.slug) }}
+            dangerouslySetInnerHTML={{ __html: fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug)) }}
           />
         )}
       </div>
