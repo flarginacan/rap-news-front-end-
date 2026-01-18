@@ -194,20 +194,24 @@
     display: none !important;
   }
 
+  /* Wrapper-controlled aspect ratio container */
+  .getty-embed-ratio {
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  
   .getty-embed-wrap iframe,
   iframe[src*="embed.gettyimages.com"] {
     width: 100% !important;
+    height: 100% !important;
     border: 0 !important;
     display: block !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     background: transparent !important;
     
-    /* CRITICAL: do not force a height here.
-       The iframe's inline aspect-ratio determines responsive height. */
-    height: auto;              /* no !important */
-    
-    /* Remove any conflicting rules */
     /* pointer-events: none - keep if needed for click handling */
     pointer-events: none !important;
   }
