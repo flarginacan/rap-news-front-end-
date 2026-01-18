@@ -223,20 +223,17 @@
       margin-top: 0 !important;
       margin-bottom: 16px !important;
       /* Ensure proper spacing - no overlap */
-      overflow: visible;
-      position: relative;
+      overflow: visible !important;
+      position: relative !important;
     }
     
-    /* Hide caption bar on mobile - clip the top 50px where caption appears */
+    /* Remove any transforms or negative margins that cause overlap */
     .getty-embed-wrap iframe,
     iframe[src*="embed.gettyimages.com"] {
-      /* Shift iframe up and clip top portion to hide caption */
-      transform: translateY(-50px);
-      height: calc(100% + 50px);
-      margin-top: -50px;
-      /* Clip the top 50px where caption bar appears */
-      clip-path: inset(50px 0 0 0);
-      -webkit-clip-path: inset(50px 0 0 0);
+      transform: none !important;
+      margin-top: 0 !important;
+      clip-path: none !important;
+      -webkit-clip-path: none !important;
     }
   }
 
