@@ -19,67 +19,66 @@ export function fixIframeEntities(html: string, debugMode: boolean = false): str
     return html;
   }
 
-  // Use cheerio for reliable HTML parsing (server-side safe)
-  const $ = cheerio.load(html, { decodeEntities: false });
+  // KILL SWITCH: If DISABLE_GETTY_NORMALIZE is set, return original HTML unchanged
+  if (process.env.DISABLE_GETTY_NORMALIZE === '1') {
+    return html;
+  }
+
+  // SAFER APPROACH: Only do string replacement on iframe src attributes (no cheerio parsing)
+  // This avoids breaking HTML structure
+  if (!html.includes('embed.gettyimages.com/embed/')) {
+    return html;
+  }
+
   let foundFirstIframe = false;
+  let debugComment = '';
+
+  // Extract and normalize each iframe src using regex (safer than parsing entire HTML)
+  const iframeSrcRegex = /(<iframe\b[^>]*\bsrc=["'])(https?:\/\/embed\.gettyimages\.com\/embed\/[^"']+)(["'][^>]*>)/gi;
   
-  // Find and fix all Getty iframe src attributes
-  $('iframe[src*="embed.gettyimages.com/embed/"]').each((_, element) => {
-    const $iframe = $(element);
-    let src = $iframe.attr('src');
-    
-    if (src) {
-      // Step 1: Decode HTML entities in src (at minimum: &amp; -> &)
-      let fixedSrc = src
-        .replace(/&amp;/g, '&')           // &amp; -> &
-        .replace(/&lt;/g, '<')            // &lt; -> <
-        .replace(/&gt;/g, '>')            // &gt; -> >
-        .replace(/&quot;/g, '"')          // &quot; -> "
-        .replace(/&#39;/g, "'")           // &#39; -> '
-        .replace(/&#x27;/g, "'")          // &#x27; -> '
-        .replace(/&#x2F;/g, '/')          // &#x2F; -> /
-        .replace(/&#x3D;/g, '=')          // &#x3D; -> =
-        .replace(/&#x3F;/g, '?')          // &#x3F; -> ?
-        .replace(/&#x26;/g, '&');         // &#x26; -> &
+  const normalizedHtml = html.replace(iframeSrcRegex, (match, prefix, src, suffix) => {
+    try {
+      // Step 1: Decode HTML entities in src (only &amp; -> & for now)
+      let fixedSrc = src.replace(/&amp;/g, '&');
       
       // Step 2: Normalize URL using URL API
-      try {
-        const url = new URL(fixedSrc);
-        
-        // Ensure tld=com is present
-        if (!url.searchParams.has('tld')) {
-          url.searchParams.set('tld', 'com');
-        }
-        
-        // Ensure caption=false is present
-        if (!url.searchParams.has('caption')) {
-          url.searchParams.set('caption', 'false');
-        }
-        
-        // DO NOT touch et or sig values - they must remain unchanged
-        
-        fixedSrc = url.toString();
-      } catch (error) {
-        // If URL parsing fails, log but keep the decoded src
-        console.error('[fixIframeEntities] Failed to normalize URL:', error);
+      const url = new URL(fixedSrc);
+      
+      // Ensure tld=com is present
+      if (!url.searchParams.has('tld')) {
+        url.searchParams.set('tld', 'com');
       }
       
-      $iframe.attr('src', fixedSrc);
-      
-      // Add debug comment above iframe if debug mode is enabled
-      if (debugMode && !foundFirstIframe) {
-        const debugComment = `<!-- getty_iframe_src: ${fixedSrc} -->`;
-        $iframe.before(debugComment);
-        foundFirstIframe = true;
+      // Ensure caption=false is present
+      if (!url.searchParams.has('caption')) {
+        url.searchParams.set('caption', 'false');
       }
       
-      // Log in production if debug mode (for server console)
+      // DO NOT touch et or sig values - they must remain unchanged
+      
+      fixedSrc = url.toString();
+      
+      // Add debug comment for first iframe (only if we successfully normalized)
       if (debugMode && !foundFirstIframe) {
+        debugComment = `<!-- getty_iframe_src: ${fixedSrc} -->\n`;
         console.log('[fixIframeEntities] Normalized Getty iframe src:', fixedSrc);
         foundFirstIframe = true;
       }
+      
+      // Return the normalized iframe tag
+      return prefix + fixedSrc + suffix;
+    } catch (error) {
+      // If URL parsing fails, return original match unchanged
+      console.error('[fixIframeEntities] Failed to normalize URL:', error);
+      return match;
     }
   });
-  
-  return $.html();
+
+  // Prepend debug comment before first iframe if found
+  if (debugMode && debugComment && normalizedHtml.includes('<iframe')) {
+    const firstIframeIndex = normalizedHtml.indexOf('<iframe');
+    return normalizedHtml.slice(0, firstIframeIndex) + debugComment + normalizedHtml.slice(firstIframeIndex);
+  }
+
+  return normalizedHtml;
 }
