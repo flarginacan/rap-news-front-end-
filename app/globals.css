@@ -194,7 +194,7 @@
     pointer-events: none !important;  /* Disable clicks on iframe (clicks bubble to container) */
     width: 100% !important;
     height: auto !important;
-    max-height: 500px !important;  /* Constrain max height to prevent excessive black space */
+    max-height: none !important;  /* No height constraints - use natural dimensions */
     border: 0 !important;
     display: block !important;
     background: transparent !important;
