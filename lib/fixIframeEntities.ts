@@ -36,7 +36,7 @@ export function fixIframeEntities(html: string): string {
     // Replace the src value in the attributes
     const fixedAttributes = attributes.replace(
       /src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i,
-      (srcMatch, originalSrc) => {
+      (srcMatch: string, originalSrc: string) => {
         return srcMatch.replace(originalSrc, fixedSrc);
       }
     );
