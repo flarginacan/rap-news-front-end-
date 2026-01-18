@@ -3,6 +3,7 @@
 import { Article } from '@/types'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 import { fixIframeEntities } from '@/lib/fixIframeEntities'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
@@ -300,6 +301,8 @@ function cleanWordPressContent(html: string): string {
 }
 
 export default function ArticleCard({ article, showLink = true, id }: ArticleCardProps) {
+  const searchParams = useSearchParams()
+  const debugMode = searchParams?.get('debug_getty') === '1'
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
@@ -571,7 +574,8 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
                     return '';
                   }
                   return match;
-                })
+                }),
+                debugMode
               )
             }}
           />
@@ -622,14 +626,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             }}
             dangerouslySetInnerHTML={{ 
               __html: (() => {
-                const fixed = fixIframeEntities(contentWithoutGetty);
-                // TEMP dev-only log: print first iframe src found
-                if (process.env.NODE_ENV !== 'production') {
-                  const iframeMatch = fixed.match(/<iframe[^>]*src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i);
-                  if (iframeMatch) {
-                    console.log('[ArticleCard] First Getty iframe src in content (after fix):', iframeMatch[1]);
-                  }
-                }
+                const fixed = fixIframeEntities(contentWithoutGetty, debugMode);
                 return fixed;
               })()
             }}
@@ -644,14 +641,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
             }}
             dangerouslySetInnerHTML={{ 
               __html: (() => {
-                const fixed = fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug));
-                // TEMP dev-only log: print first iframe src found
-                if (process.env.NODE_ENV !== 'production') {
-                  const iframeMatch = fixed.match(/<iframe[^>]*src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i);
-                  if (iframeMatch) {
-                    console.log('[ArticleCard] First Getty iframe src in content (after fix):', iframeMatch[1]);
-                  }
-                }
+                const fixed = fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug), debugMode);
                 return fixed;
               })()
             }}
