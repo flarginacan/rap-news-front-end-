@@ -155,10 +155,11 @@
     padding: 0 !important;
     position: relative !important;
     
-    /* Use natural height - no constraints */
+    /* Size container to match image - no artificial constraints */
     height: auto !important;
+    min-height: 0 !important;
     max-height: none !important;
-    overflow: visible !important;  /* Changed from hidden to visible */
+    overflow: hidden !important;  /* Clip any black space from iframe */
     
     /* Stacking context fix - remove overlays and force iframe on top */
     isolation: isolate !important;      /* creates a local stacking context */
@@ -189,12 +190,13 @@
 
   .getty-embed-wrap iframe,
   iframe[src*="embed.gettyimages.com"] {
-    position: relative !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     z-index: 999999 !important;
     pointer-events: none !important;  /* Disable clicks on iframe (clicks bubble to container) */
     width: 100% !important;
-    height: auto !important;
-    max-height: none !important;  /* No height constraints - use natural dimensions */
+    height: 100% !important;  /* Fill container - container height comes from aspect-ratio */
     border: 0 !important;
     display: block !important;
     background: transparent !important;
