@@ -190,14 +190,19 @@
 
   .getty-embed-wrap iframe,
   iframe[src*="embed.gettyimages.com"] {
-    position: relative !important;
-    z-index: 999999 !important;
-    pointer-events: none !important;  /* Disable clicks on iframe (clicks bubble to container) */
     width: 100% !important;
-    height: auto !important;  /* Let iframe size naturally */
     border: 0 !important;
     display: block !important;
+    
+    /* CRITICAL: do not force a height here.
+       The iframe's inline aspect-ratio determines responsive height. */
+    height: auto;              /* no !important */
+    max-width: 100% !important;
+    overflow: hidden !important;
     background: transparent !important;
+    
+    /* Keep pointer-events: none to allow clicks to bubble to container */
+    pointer-events: none !important;
   }
   
   /* Removed forced aspect ratio and height constraints - embeds use natural dimensions */
