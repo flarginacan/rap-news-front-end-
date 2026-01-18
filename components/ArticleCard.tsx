@@ -620,7 +620,19 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: fixIframeEntities(contentWithoutGetty) }}
+            dangerouslySetInnerHTML={{ 
+              __html: (() => {
+                const fixed = fixIframeEntities(contentWithoutGetty);
+                // TEMP dev-only log: print first iframe src found
+                if (process.env.NODE_ENV !== 'production') {
+                  const iframeMatch = fixed.match(/<iframe[^>]*src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i);
+                  if (iframeMatch) {
+                    console.log('[ArticleCard] First Getty iframe src in content (after fix):', iframeMatch[1]);
+                  }
+                }
+                return fixed;
+              })()
+            }}
           />
         ) : (
           <div 
@@ -630,7 +642,19 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               lineHeight: '1.75',
               fontSize: '18px'
             }}
-            dangerouslySetInnerHTML={{ __html: fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug)) }}
+            dangerouslySetInnerHTML={{ 
+              __html: (() => {
+                const fixed = fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug));
+                // TEMP dev-only log: print first iframe src found
+                if (process.env.NODE_ENV !== 'production') {
+                  const iframeMatch = fixed.match(/<iframe[^>]*src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i);
+                  if (iframeMatch) {
+                    console.log('[ArticleCard] First Getty iframe src in content (after fix):', iframeMatch[1]);
+                  }
+                }
+                return fixed;
+              })()
+            }}
           />
         )}
       </div>

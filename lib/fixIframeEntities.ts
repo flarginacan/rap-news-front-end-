@@ -5,42 +5,51 @@
  * which breaks Getty's signature validation and causes 400 errors.
  * 
  * This function:
- * 1. Finds all iframe[src*="embed.gettyimages.com"] elements
- * 2. Decodes HTML entities in their src attributes
- * 3. Returns the fixed HTML
+ * 1. Uses cheerio to parse HTML (server-side safe, deterministic)
+ * 2. Finds all iframe[src*="embed.gettyimages.com"] elements
+ * 3. Decodes HTML entities ONLY in their src attributes
+ * 4. Returns the fixed HTML
  */
+
+import * as cheerio from 'cheerio';
 
 export function fixIframeEntities(html: string): string {
   if (!html || typeof html !== 'string') {
     return html;
   }
 
-  // Use regex to find and fix iframe src attributes
-  // Pattern: <iframe ... src="..." ...>
-  const iframePattern = /<iframe([^>]*src=["']([^"']*embed\.gettyimages\.com[^"']*)["'][^>]*)>/gi;
+  // Use cheerio for reliable HTML parsing (server-side safe)
+  const $ = cheerio.load(html, { decodeEntities: false });
+  let foundFirstIframe = false;
   
-  return html.replace(iframePattern, (match, attributes, srcValue) => {
-    // Decode HTML entities in the src value
-    let fixedSrc = srcValue
-      .replace(/&amp;/g, '&')           // &amp; -> &
-      .replace(/&lt;/g, '<')            // &lt; -> <
-      .replace(/&gt;/g, '>')            // &gt; -> >
-      .replace(/&quot;/g, '"')          // &quot; -> "
-      .replace(/&#39;/g, "'")           // &#39; -> '
-      .replace(/&#x27;/g, "'")          // &#x27; -> '
-      .replace(/&#x2F;/g, '/')          // &#x2F; -> /
-      .replace(/&#x3D;/g, '=')          // &#x3D; -> =
-      .replace(/&#x3F;/g, '?')          // &#x3F; -> ?
-      .replace(/&#x26;/g, '&');         // &#x26; -> &
+  // Find and fix all Getty iframe src attributes
+  $('iframe[src*="embed.gettyimages.com"]').each((_, element) => {
+    const $iframe = $(element);
+    let src = $iframe.attr('src');
     
-    // Replace the src value in the attributes
-    const fixedAttributes = attributes.replace(
-      /src=["']([^"']*embed\.gettyimages\.com[^"']*)["']/i,
-      (srcMatch: string, originalSrc: string) => {
-        return srcMatch.replace(originalSrc, fixedSrc);
+    if (src) {
+      // Decode HTML entities in src (at minimum: &amp; -> &)
+      const fixedSrc = src
+        .replace(/&amp;/g, '&')           // &amp; -> &
+        .replace(/&lt;/g, '<')            // &lt; -> <
+        .replace(/&gt;/g, '>')            // &gt; -> >
+        .replace(/&quot;/g, '"')          // &quot; -> "
+        .replace(/&#39;/g, "'")           // &#39; -> '
+        .replace(/&#x27;/g, "'")          // &#x27; -> '
+        .replace(/&#x2F;/g, '/')          // &#x2F; -> /
+        .replace(/&#x3D;/g, '=')          // &#x3D; -> =
+        .replace(/&#x3F;/g, '?')          // &#x3F; -> ?
+        .replace(/&#x26;/g, '&');         // &#x26; -> &
+      
+      $iframe.attr('src', fixedSrc);
+      
+      // TEMP dev-only log: print first iframe src after fix
+      if (!foundFirstIframe && process.env.NODE_ENV !== 'production') {
+        console.log('[fixIframeEntities] First Getty iframe src after fix:', fixedSrc);
+        foundFirstIframe = true;
       }
-    );
-    
-    return `<iframe${fixedAttributes}>`;
+    }
   });
+  
+  return $.html();
 }
