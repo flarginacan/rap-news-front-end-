@@ -527,8 +527,8 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* Use React component for Getty widget (preferred) */}
       {article.gettyWidgetConfig?.items ? (
         <div 
-          className={`${!showLink ? 'mt-0 mb-0 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
-          style={{ marginTop: 0, maxHeight: '500px', overflow: 'hidden', cursor: 'pointer' }}
+          className={`${!showLink ? 'mt-0 mb-4 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
+          style={{ marginTop: 0, marginBottom: '16px', cursor: 'pointer' }}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -560,7 +560,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           />
         </div>
       ) : gettyImageHtml ? (
-        <div className={`${!showLink ? 'mb-0 md:mb-8' : 'mb-6 md:mb-8'}`}>
+        <div className={`${!showLink ? 'mb-4 md:mb-8' : 'mb-6 md:mb-8'}`} style={{ marginBottom: '16px' }}>
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
