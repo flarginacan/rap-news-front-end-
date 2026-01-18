@@ -15,4 +15,6 @@ export const entityAllowlist: string[] = [
   'future',
   'big-sean',
   'nelly',
+  'dj-quik',
+  'dj-quik-2',
 ]

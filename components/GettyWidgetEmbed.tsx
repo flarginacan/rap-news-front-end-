@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ensureGettyScript } from "@/lib/getty";
+import { ensureGettyScript } from "@/lib/getty"; // loader ONLY loads the script, no queue setup
 
 declare global {
   interface Window { gie?: any; }
@@ -16,53 +16,36 @@ export default function GettyWidgetEmbed({ items }: { items: string }) {
     ran.current = true;
 
     (async () => {
-      try {
-        await ensureGettyScript(); // Wait for widgets.js to load
+      await ensureGettyScript(); // only inject <script src=...> and wait for onload
 
-        // Wait for anchor to be in DOM and widgets API to be ready
-        const initEmbed = () => {
-          const anchor = document.getElementById(anchorId);
-          if (!anchor) {
-            requestAnimationFrame(initEmbed);
-            return;
-          }
+      // Wait for anchor to be in DOM
+      // Getty's widgets.js will automatically scan the DOM for .gie-single anchors
+      // We don't need to call widgets.load() - it happens automatically when the script loads
+      const checkAnchor = () => {
+        const anchor = document.getElementById(anchorId);
+        if (!anchor) {
+          // Anchor not ready yet, try again
+          requestAnimationFrame(checkAnchor);
+          return;
+        }
 
-          // Check if widgets API is ready
-          if (!window.gie?.widgets?.load || typeof window.gie.widgets.load !== 'function') {
-            requestAnimationFrame(initEmbed);
-            return;
-          }
+        // Verify anchor has required attributes
+        if (!anchor.id || !anchor.getAttribute('data-items')) {
+          console.warn("[Getty] Anchor missing required attributes, retrying...");
+          requestAnimationFrame(checkAnchor);
+          return;
+        }
 
-          // Verify anchor has required attributes
-          if (!anchor.getAttribute('data-items')) {
-            console.warn("[Getty] Anchor missing data-items, retrying...");
-            requestAnimationFrame(initEmbed);
-            return;
-          }
+        // Anchor exists and has required attributes
+        // Getty's script will automatically process it - no need to call widgets.load()
+        // The script scans the DOM on load and finds all .gie-single anchors
+        console.log("[Getty] Anchor ready, waiting for widgets.js to process it");
+      };
 
-          // Call widgets.load() to initialize the embed
-          try {
-            window.gie.widgets.load({
-              id: anchorId,
-              items: items,
-              caption: false,
-              tld: 'com',
-              w: '594',
-              h: '396'
-            });
-            console.log("[Getty] Embed initialized for anchor:", anchorId);
-          } catch (error) {
-            console.error("[Getty] Error initializing embed:", error);
-          }
-        };
-
-        // Start initialization after a frame
-        requestAnimationFrame(initEmbed);
-      } catch (error) {
-        console.error("[Getty] Error loading script:", error);
-      }
+      // Start checking after a frame
+      requestAnimationFrame(checkAnchor);
     })();
-  }, [anchorId, items]);
+  }, [anchorId]);
 
   return (
     <a
