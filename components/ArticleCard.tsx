@@ -301,8 +301,14 @@ function cleanWordPressContent(html: string): string {
 }
 
 export default function ArticleCard({ article, showLink = true, id }: ArticleCardProps) {
-  const searchParams = useSearchParams()
-  const debugMode = searchParams?.get('debug_getty') === '1'
+  let debugMode = false
+  try {
+    const searchParams = useSearchParams()
+    debugMode = searchParams?.get('debug_getty') === '1'
+  } catch (e) {
+    // useSearchParams may not be available during SSR
+    debugMode = false
+  }
   const contentHtml = cleanWordPressContent(article.content)
   const contentRef = useRef<HTMLDivElement>(null)
   
