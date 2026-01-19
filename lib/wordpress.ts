@@ -379,6 +379,18 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     console.warn(`[convertWordPressPost] ⚠️  No gie-single anchor found in content`)
   }
 
+  // Extract gettyEmbedIframeSrc from HTML content (preferred over HTML extraction)
+  let gettyEmbedIframeSrc: string | undefined = undefined
+  const iframeSrcMatch = rawContent.match(/<iframe[^>]*src\s*=\s*["']([^"']*embed\.gettyimages\.com\/embed\/[^"']*)["'][^>]*>/i)
+  if (iframeSrcMatch && iframeSrcMatch[1]) {
+    // Decode HTML entities in the src URL
+    gettyEmbedIframeSrc = iframeSrcMatch[1]
+      .replace(/&#038;/g, '&')
+      .replace(/&amp;/g, '&')
+      .replace(/&#x26;/g, '&')
+    console.log(`[convertWordPressPost] ✅ Extracted gettyEmbedIframeSrc: ${gettyEmbedIframeSrc.substring(0, 100)}...`)
+  }
+
   // First, extract and preserve Getty Images embed divs completely (including script tags and credit divs)
   // CRITICAL: Preserve ALL Getty embeds - iframe format, widget format, any format
   const gettyImageDivs: string[] = []
@@ -548,6 +560,7 @@ export async function convertWordPressPost(post: WordPressPost): Promise<Article
     content: content,
     gettyAnchorHtml: gettyAnchorHtml,
     gettyWidgetConfig: gettyWidgetConfig,
+    gettyEmbedIframeSrc: gettyEmbedIframeSrc,
   }
 }
 

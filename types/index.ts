@@ -18,6 +18,7 @@ export interface Article {
     h?: string;
     caption?: boolean;
   }; // Widget config extracted from oEmbed (for manual widgets.load() call)
+  gettyEmbedIframeSrc?: string; // Refreshed signed iframe URL (preferred over HTML extraction)
 }
 
 export interface ArticlesResponse {

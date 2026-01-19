@@ -535,7 +535,37 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* CRITICAL: Credit must always be visible - never cropped or hidden */}
       {/* Fix mobile white space: remove bottom margin on mobile for article page (first element) */}
       {/* Use React component for Getty widget (preferred) */}
-      {article.gettyWidgetConfig?.items ? (
+      {/* PRIORITY 1: Use gettyEmbedIframeSrc if available (refreshed signed URL) */}
+      {article.gettyEmbedIframeSrc ? (
+        <div 
+          className={`${!showLink ? 'mb-4 md:mb-8' : 'mb-6 md:mb-8'}`} 
+          style={{ marginBottom: '16px' }}
+        >
+          <div 
+            ref={gettyImageRef}
+            dangerouslySetInnerHTML={{ 
+              __html: normalizeGettyIframesInHtml(
+                fixGettyIframeSrc(
+                  `<div class="getty-embed-wrap" style="width:100%;max-width:615px;margin:32px auto 16px;">
+                    <iframe
+                      src="${article.gettyEmbedIframeSrc}"
+                      title="Getty Images Embed"
+                      loading="lazy"
+                      referrerpolicy="no-referrer-when-downgrade"
+                      frameborder="0"
+                      scrolling="no"
+                      style="width:100%;border:0;display:block;aspect-ratio:615 / 484;height:auto;overflow:hidden;background:transparent;"
+                      allowfullscreen
+                    ></iframe>
+                  </div>`,
+                  { debug: debugMode }
+                ),
+                debugMode
+              )
+            }}
+          />
+        </div>
+      ) : article.gettyWidgetConfig?.items ? (
         <div 
           className={`${!showLink ? 'mt-0 mb-4 md:mb-8' : 'mt-0 mb-6 md:mb-8'}`} 
           style={{ marginTop: 0, marginBottom: '16px', cursor: 'pointer' }}
