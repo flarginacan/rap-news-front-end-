@@ -566,8 +566,8 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
         </div>
       ) : article.gettyWidgetConfig?.items ? (
         <div 
-          className={`${!showLink ? 'mt-0 mb-3.5 md:mb-8' : 'mt-0 mb-5 md:mb-8'}`} 
-          style={{ marginTop: 0, marginBottom: '16px', cursor: 'pointer' }}
+          className={`${!showLink ? 'mt-0 mb-2 md:mb-8' : 'mt-0 mb-3 md:mb-8'}`} 
+          style={{ cursor: 'pointer' }}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
