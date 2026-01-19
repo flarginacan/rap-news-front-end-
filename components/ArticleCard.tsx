@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
 import { fixGettyIframeSrc } from '@/lib/fixGettyIframeSrc'
+import { normalizeGettyIframesInHtml } from '@/lib/normalizeGettyIframesInHtml'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
 import ShareButton from './ShareButton'
 
@@ -573,15 +574,18 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
-              __html: fixGettyIframeSrc(
-                gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
-                  // Remove any script containing gie-related code
-                  if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
-                    return '';
-                  }
-                  return match;
-                }),
-                { debug: debugMode }
+              __html: normalizeGettyIframesInHtml(
+                fixGettyIframeSrc(
+                  gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
+                    // Remove any script containing gie-related code
+                    if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
+                      return '';
+                    }
+                    return match;
+                  }),
+                  { debug: debugMode }
+                ),
+                debugMode
               )
             }}
           />
@@ -631,7 +635,10 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               fontSize: '18px'
             }}
             dangerouslySetInnerHTML={{ 
-              __html: fixGettyIframeSrc(contentWithoutGetty, { debug: debugMode })
+              __html: normalizeGettyIframesInHtml(
+                fixGettyIframeSrc(contentWithoutGetty, { debug: debugMode }),
+                debugMode
+              )
             }}
           />
         ) : (
@@ -643,7 +650,10 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               fontSize: '18px'
             }}
             dangerouslySetInnerHTML={{ 
-              __html: fixGettyIframeSrc(injectFromIntoEntityLinks(contentWithoutGetty, article.slug), { debug: debugMode })
+              __html: normalizeGettyIframesInHtml(
+                fixGettyIframeSrc(injectFromIntoEntityLinks(contentWithoutGetty, article.slug), { debug: debugMode }),
+                debugMode
+              )
             }}
           />
         )}

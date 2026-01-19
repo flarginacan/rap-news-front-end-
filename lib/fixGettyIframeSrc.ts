@@ -30,8 +30,9 @@ export function fixGettyIframeSrc(html: string, opts?: { debug?: boolean }) {
       const sig = params.get("sig") || "";
 
       // Heuristics: real et/sig are long. Also they should not be identical.
+      // Updated: et can be shorter (min 20), sig should be longer (min 40)
       if (!et || !sig) return { ok: false, reason: "missing-et-or-sig", etLen: et.length, sigLen: sig.length };
-      if (et.length < 40 || sig.length < 40) return { ok: false, reason: "et-or-sig-too-short", etLen: et.length, sigLen: sig.length };
+      if (et.length < 20 || sig.length < 40) return { ok: false, reason: "et-or-sig-too-short", etLen: et.length, sigLen: sig.length };
       if (et === sig) return { ok: false, reason: "et-equals-sig", etLen: et.length, sigLen: sig.length };
 
       return { ok: true, etLen: et.length, sigLen: sig.length };
