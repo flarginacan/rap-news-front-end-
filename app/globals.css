@@ -149,7 +149,8 @@
   /* --- Getty embed styling --- */
   .getty-embed-wrap {
     width: 100% !important;
-    max-width: 100% !important;
+    /* max-width: Allow inline styles to set specific widths (e.g., 429px) */
+    /* max-width: 100% !important; */
     margin: 0 !important;
     margin-top: 0 !important;
     margin-bottom: 16px !important;
