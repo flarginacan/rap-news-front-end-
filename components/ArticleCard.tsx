@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { injectFromIntoEntityLinks } from '@/lib/injectFrom'
-import { fixIframeEntities } from '@/lib/fixIframeEntities'
+import { fixGettyIframeSrc } from '@/lib/fixGettyIframeSrc'
 import GettyWidgetEmbed from './GettyWidgetEmbed'
 import ShareButton from './ShareButton'
 
@@ -573,7 +573,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
-              __html: fixIframeEntities(
+              __html: fixGettyIframeSrc(
                 gettyImageHtml.replace(/<script[^>]*>[\s\S]*?gie[\s\S]*?<\/script>/gi, (match) => {
                   // Remove any script containing gie-related code
                   if (match.match(/(?:window\s*\.\s*gie|gie\s*\.\s*widgets|gie\s*\(|gie\s*=\s*|\.\s*gie|gie\s*\.\s*q)/i)) {
@@ -581,7 +581,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
                   }
                   return match;
                 }),
-                debugMode
+                { debug: debugMode }
               )
             }}
           />
@@ -631,10 +631,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               fontSize: '18px'
             }}
             dangerouslySetInnerHTML={{ 
-              __html: (() => {
-                const fixed = fixIframeEntities(contentWithoutGetty, debugMode);
-                return fixed;
-              })()
+              __html: fixGettyIframeSrc(contentWithoutGetty, { debug: debugMode })
             }}
           />
         ) : (
@@ -646,10 +643,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
               fontSize: '18px'
             }}
             dangerouslySetInnerHTML={{ 
-              __html: (() => {
-                const fixed = fixIframeEntities(injectFromIntoEntityLinks(contentWithoutGetty, article.slug), debugMode);
-                return fixed;
-              })()
+              __html: fixGettyIframeSrc(injectFromIntoEntityLinks(contentWithoutGetty, article.slug), { debug: debugMode })
             }}
           />
         )}
