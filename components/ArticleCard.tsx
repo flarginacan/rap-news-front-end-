@@ -538,8 +538,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       {/* PRIORITY 1: Use gettyEmbedIframeSrc if available (refreshed signed URL) */}
       {article.gettyEmbedIframeSrc ? (
         <div 
-          className={`${!showLink ? 'mb-3.5 md:mb-8' : 'mb-5 md:mb-8'}`} 
-          style={{ marginBottom: '16px' }}
+          className={`${!showLink ? 'mb-2 md:mb-8' : 'mb-3 md:mb-8'}`}
         >
           <div 
             ref={gettyImageRef}
@@ -600,7 +599,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
           />
         </div>
       ) : gettyImageHtml ? (
-        <div className={`${!showLink ? 'mb-3.5 md:mb-8' : 'mb-5 md:mb-8'}`} style={{ marginBottom: '16px' }}>
+        <div className={`${!showLink ? 'mb-2 md:mb-8' : 'mb-3 md:mb-8'}`}>
           <div 
             ref={gettyImageRef}
             dangerouslySetInnerHTML={{ 
@@ -637,7 +636,7 @@ export default function ArticleCard({ article, showLink = true, id }: ArticleCar
       )}
       
       <div className="px-4 md:px-6 lg:px-8">
-        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink && article.gettyWidgetConfig?.items ? 'mt-0' : !showLink ? 'mt-0' : 'mt-3.5'} md:mt-6 leading-tight text-balance`}>
+        <h1 className={`text-black font-bold text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 ${!showLink && article.gettyWidgetConfig?.items ? 'mt-0' : !showLink ? 'mt-0' : 'mt-2'} md:mt-6 leading-tight text-balance`}>
           {article.title}
         </h1>
         
